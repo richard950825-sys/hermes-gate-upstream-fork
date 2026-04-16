@@ -1,0 +1,13 @@
+services:
+  hermes-gate:
+    build: .
+    container_name: hermes-gate
+    environment:
+      - SERVER_HOST=${SERVER_HOST}
+      - SERVER_USER=${SERVER_USER:-root}
+      - SERVER_PORT=${SERVER_PORT:-22}
+    volumes:
+      - ~/.ssh:/home/hermes/.ssh:ro
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
