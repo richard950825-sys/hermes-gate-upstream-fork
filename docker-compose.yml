@@ -2,10 +2,6 @@ services:
   hermes-gate:
     build: .
     container_name: hermes-gate
-    environment:
-      - SERVER_HOST=${SERVER_HOST}
-      - SERVER_USER=${SERVER_USER:-root}
-      - SERVER_PORT=${SERVER_PORT:-22}
     volumes:
       - ~/.ssh:/root/.ssh:ro
       - ./hermes_gate:/app/hermes_gate

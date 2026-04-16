@@ -1,13 +1,13 @@
 """Hermes Gate Main TUI Application — Built with Textual"""
 
 import asyncio
-import os
 import re
 import subprocess
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical, Center
+from textual.events import Key
 from textual.widgets import (
     Header,
     Footer,
@@ -49,7 +49,9 @@ class NewServerScreen(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         with Container(id="dialog"):
             yield Label("🔗 Add Server", id="dialog-title")
-            yield Input(placeholder="e.g.: root@1.2.3.4 or admin@myserver", id="input")
+            yield Input(
+                placeholder="e.g.: root@1.2.3.4 or admin@myserver:2222", id="input"
+            )
             yield Label("Enter to confirm · Esc to cancel", id="hint")
             with Horizontal(id="btn-row"):
                 yield Button("Connect", variant="success", id="btn-ok")
@@ -314,7 +316,7 @@ class HermesGateApp(App):
 
         from hermes_gate.servers import remove_server
 
-        remove_server(server["user"], server["host"])
+        remove_server(server["user"], server["host"], server.get("port", "22"))
         self._hint("server-hint", f"Deleted {name}")
         # 刷新列表
         self._clear()
@@ -328,12 +330,17 @@ class HermesGateApp(App):
             if "@" not in text:
                 self._hint("server-hint", "Invalid format. Please enter user@host")
                 return
-            user, host = text.split("@", 1)
-            user, host = user.strip(), host.strip()
+            user, host_port = text.split("@", 1)
+            user = user.strip()
+            if ":" in host_port:
+                host, port = host_port.rsplit(":", 1)
+                host, port = host.strip(), port.strip()
+            else:
+                host, port = host_port.strip(), "22"
             if not user or not host:
                 self._hint("server-hint", "Username and host cannot be empty")
                 return
-            self._connect_server({"user": user, "host": host}, new=True)
+            self._connect_server({"user": user, "host": host, "port": port}, new=True)
 
         self.push_screen(NewServerScreen(), handle)
 
@@ -341,13 +348,14 @@ class HermesGateApp(App):
 
     def _connect_server(self, server: dict, new: bool = False) -> None:
         user, host = server["user"], server["host"]
+        port = server.get("port", "22")
         name = display_name(server)
         scr = ConnectingScreen(f"🔍 Connecting to {name} ...")
         self.push_screen(scr)
 
         async def _do():
             scr.update_msg(f"🔍 Testing SSH connection to {name} ...")
-            if not await self._ssh_ok(user, host):
+            if not await self._ssh_ok(user, host, port):
                 self.pop_screen()
                 self._hint(
                     "server-hint",
@@ -357,19 +365,19 @@ class HermesGateApp(App):
                 )
                 return
             scr.update_msg(f"🔍 Checking hermes on {name} ...")
-            if not await self._hermes_ok(user, host):
+            if not await self._hermes_ok(user, host, port):
                 self.pop_screen()
                 self._hint("server-hint", "Please install hermes on the server")
                 return
             if new:
-                add_server(user, host)
+                add_server(user, host, port)
             self._server = server
             self.pop_screen()
-            self._show_session_list(user, host)
+            self._show_session_list(user, host, port)
 
         self.run_worker(_do(), exclusive=True)
 
-    async def _ssh_ok(self, user: str, host: str) -> bool:
+    async def _ssh_ok(self, user: str, host: str, port: str = "22") -> bool:
         ip = resolve_to_ip(host)
         try:
             p = await asyncio.create_subprocess_exec(
@@ -380,6 +388,8 @@ class HermesGateApp(App):
                 "StrictHostKeyChecking=no",
                 "-o",
                 "ConnectTimeout=8",
+                "-p",
+                port,
                 f"{user}@{ip}",
                 "echo",
                 "ok",
@@ -391,7 +401,7 @@ class HermesGateApp(App):
         except Exception:
             return False
 
-    async def _hermes_ok(self, user: str, host: str) -> bool:
+    async def _hermes_ok(self, user: str, host: str, port: str = "22") -> bool:
         ip = resolve_to_ip(host)
         try:
             p = await asyncio.create_subprocess_exec(
@@ -402,6 +412,8 @@ class HermesGateApp(App):
                 "StrictHostKeyChecking=no",
                 "-o",
                 "ConnectTimeout=8",
+                "-p",
+                port,
                 f"{user}@{ip}",
                 "bash -l -c 'hermes --version'",
                 stdout=asyncio.subprocess.PIPE,
@@ -430,17 +442,16 @@ class HermesGateApp(App):
     # Step 2: Session List
     # ═══════════════════════════════════════════════════════════════
 
-    def _show_session_list(self, user: str, host: str) -> None:
+    def _show_session_list(self, user: str, host: str, port: str = "22") -> None:
         self._phase = "session"
         self._clear()
 
-        port = os.environ.get("SERVER_PORT", "22")
         self.session_mgr = SessionManager(user, host, port)
         self.net_monitor = NetworkMonitor(host)
 
         self.BINDINGS = self._BIND_SESSION
 
-        server_name = display_name({"user": user, "host": host})
+        server_name = display_name({"user": user, "host": host, "port": port})
         self.mount(
             Center(
                 Vertical(
@@ -783,7 +794,11 @@ class HermesGateApp(App):
             # Return to session list (remote tmux not killed)
             self._phase = "session"
             if self._server and self.session_mgr:
-                self._show_session_list(self._server["user"], self._server["host"])
+                self._show_session_list(
+                    self._server["user"],
+                    self._server["host"],
+                    self._server.get("port", "22"),
+                )
 
         elif self._phase == "session":
             # Return to server selection

@@ -33,23 +33,26 @@ def save_servers(servers: list[dict]) -> None:
     f.write_text(json.dumps(servers, indent=2, ensure_ascii=False))
 
 
-def add_server(user: str, host: str) -> dict:
+def add_server(user: str, host: str, port: str = "22") -> dict:
     """添加服务器并返回，如果已存在则返回已有项"""
     servers = load_servers()
-    # 去重
     for s in servers:
-        if s["user"] == user and s["host"] == host:
+        if s["user"] == user and s["host"] == host and s.get("port", "22") == port:
             return s
-    entry = {"user": user, "host": host}
+    entry = {"user": user, "host": host, "port": port}
     servers.append(entry)
     save_servers(servers)
     return entry
 
 
-def remove_server(user: str, host: str) -> None:
+def remove_server(user: str, host: str, port: str = "22") -> None:
     """移除服务器"""
     servers = load_servers()
-    servers = [s for s in servers if not (s["user"] == user and s["host"] == host)]
+    servers = [
+        s
+        for s in servers
+        if not (s["user"] == user and s["host"] == host and s.get("port", "22") == port)
+    ]
     save_servers(servers)
 
 
@@ -101,10 +104,16 @@ def display_name(server: dict) -> str:
     生成显示名：
     - IP 登录 → root@1.2.3.4
     - hostname 登录且 /etc/hosts 有解析 → admin@hostname (1.2.3.4)
+    - 非 22 端口 → 附加 :port
     """
     user = server["user"]
     host = server["host"]
+    port = server.get("port", "22")
     hostname, ip = resolve_host(host)
     if ip:
-        return f"{user}@{hostname} ({ip})"
-    return f"{user}@{host}"
+        name = f"{user}@{hostname} ({ip})"
+    else:
+        name = f"{user}@{host}"
+    if port != "22":
+        name += f":{port}"
+    return name

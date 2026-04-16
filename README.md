@@ -16,28 +16,18 @@
 
 ### 前置要求
 
-- [Docker](https://docs.docker.com/get-dinned/)
+- [Docker](https://docs.docker.com/get-docker/)
 - SSH 密钥（`~/.ssh/id_rsa` 或 `~/.ssh/id_ed25519`），已添加到目标服务器的 `authorized_keys`
 
 ### 步骤
 
 ```bash
-# 1. 克隆仓库
 git clone https://github.com/LehaoLin/hermes-gate.git
 cd hermes-gate
-
-# 2. 配置环境变量
-cp .env.example .env
-# 编辑 .env，填入服务器信息：
-#   SERVER_HOST=your_server_ip_or_hostname
-#   SERVER_USER=root
-#   SERVER_PORT=22
-
-# 3. 启动
 ./start.sh
 ```
 
-首次运行会自动构建 Docker 镜像并进入 TUI。
+首次运行会自动构建 Docker 镜像并进入 TUI。无需任何配置文件。
 
 ## 使用
 
@@ -70,9 +60,12 @@ cp .env.example .env
 在服务器选择界面选择「➕ Add Server...」，输入格式：
 
 ```
-用户名@IP地址       例: root@1.2.3.4
-用户名@主机名       例: admin@myserver
+用户名@IP地址           例: root@1.2.3.4
+用户名@主机名           例: admin@myserver
+用户名@主机名:端口      例: root@1.2.3.4:2222
 ```
+
+默认端口为 22，非标准端口需手动指定。
 
 ## 开发
 
@@ -99,7 +92,6 @@ hermes-gate/
 ├── docker-compose.yml
 ├── entrypoint.sh
 ├── start.sh
-├── .env.example
 ├── pyproject.toml
 └── hermes_gate/
     ├── __main__.py    # 入口

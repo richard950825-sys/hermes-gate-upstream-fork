@@ -2,7 +2,6 @@
 
 import asyncio
 import subprocess
-import os
 from enum import Enum
 from dataclasses import dataclass
 
@@ -31,7 +30,7 @@ class NetworkMonitor:
     RECONNECT_INTERVAL = 5
 
     def __init__(self, host: str = ""):
-        self.host = host or os.environ.get("SERVER_HOST", "")
+        self.host = host
         self._ip = resolve_to_ip(self.host)
         self.state = NetState()
         self._running = False
