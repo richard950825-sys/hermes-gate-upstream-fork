@@ -1,58 +1,58 @@
-# Hermes Gate 启动指南
+# Hermes Gate Getting Started Guide
 
-## 首次使用
+## First Time
 
-### 1. 一键启动
+### 1. One-Click Start
 
 ```bash
 ./start.sh
 ```
 
-首次运行会自动构建 Docker 镜像并进入 TUI 交互界面。无需任何配置文件。
+The first run will automatically build the Docker image and launch the TUI interactive interface. No configuration files needed.
 
-进入后选择「➕ Add Server...」，输入：
+After entering, select "➕ Add Server..." and input:
 
 ```
-用户名@IP地址           例: root@1.2.3.4
-用户名@主机名           例: admin@myserver
-用户名@主机名:端口      例: root@1.2.3.4:2222
+username@ip_address       e.g. root@1.2.3.4
+username@hostname         e.g. admin@myserver
+username@hostname:port    e.g. root@1.2.3.4:2222
 ```
 
-### 前置条件
+### Prerequisites
 
-- Docker 已安装并运行
-- 本机 `~/.ssh` 目录下有 SSH 私钥（`id_rsa` 或 `id_ed25519`），且已添加到目标服务器的 `authorized_keys`
-- 远端服务器已安装 `tmux` 和 `hermes`
+- Docker installed and running
+- SSH private key (`id_rsa` or `id_ed25519`) in local `~/.ssh` directory, added to the target server's `authorized_keys`
+- Remote server has `tmux` and `hermes` installed
 
-## 日常使用
+## Daily Use
 
 ```bash
-./start.sh              # 启动并进入容器（已构建过则跳过 build）
-./start.sh --rebuild    # 强制重新构建后启动
+./start.sh              # Start and enter container (skips build if already built)
+./start.sh --rebuild    # Force rebuild then start
 ```
 
-退出 TUI 后容器会自动停止。
+The container stops automatically when you exit the TUI.
 
-## 热更新
+## Hot Reload
 
-`hermes_gate/` 目录下的 Python 代码已通过 volume 挂载，修改后**无需重新构建**，重启容器即可生效。
+Python code under `hermes_gate/` is mounted via a Docker volume. After modification, **no rebuild is needed** — just restart the container.
 
-以下文件修改后**需要重新构建**（`./start.sh --rebuild`）：
+The following files **require a rebuild** (`./start.sh --rebuild`) after changes:
 
 - `pyproject.toml`
 - `requirements.txt`
 - `entrypoint.sh`
 - `Dockerfile`
 
-## 常用 Docker 命令
+## Common Docker Commands
 
 ```bash
-docker compose down              # 停止并删除容器
-docker compose logs hermes-gate  # 查看日志
-docker exec -it hermes-gate bash # 进入容器 shell
+docker compose down              # Stop and remove container
+docker compose logs hermes-gate  # View logs
+docker exec -it hermes-gate bash # Enter container shell
 ```
 
-## 注意事项
+## Notes
 
-- 启动前确保本机 `~/.ssh` 目录下有 SSH 密钥（`id_rsa` 或 `id_ed25519`）
-- 退出 TUI 后容器会自动停止，下次运行 `./start.sh` 即可
+- Make sure you have SSH keys (`id_rsa` or `id_ed25519`) in your local `~/.ssh` directory before starting
+- The container stops automatically when you exit the TUI; just run `./start.sh` again next time

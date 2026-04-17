@@ -1,25 +1,35 @@
 # Hermes Gate
 
-远程连接云服务器 [Hermes](https://github.com/NomicFoundation/hermes) tmux session 的 TUI 工具。
+A feature-rich **terminal TUI** for remotely managing [Hermes](https://github.com/NomicFoundation/hermes) tmux sessions on cloud servers — all from a single Docker container, zero config.
 
-通过 Docker 容器运行，提供服务器选择、Session 管理、实时输出查看和网络状态监控。
+## Why Hermes Gate?
 
-## 功能
+Running Hermes on a remote server usually means juggling SSH terminals, worrying about dropped connections, and manually managing tmux sessions. Hermes Gate solves all of that:
 
-- 多服务器管理与快速切换
-- 远程 tmux session 创建 / 连接 / 销毁
-- 实时查看远程 Hermes 输出，支持向远程发送指令
-- 网络状态监控（延迟显示 + 断线自动重连）
-- hostname 自动解析（通过 `/etc/hosts`）
+- **Full TUI Experience** — Browse servers, manage sessions, view live Hermes output, and send prompts, all from an interactive terminal UI built with [Textual](https://textual.textualize.io/). No raw SSH commands to remember.
+- **Auto-Reconnect on Network Drops** — Real-time latency monitoring with TCP-level probing. If your connection drops, Hermes Gate automatically reconnects and resumes output — your remote Hermes keeps running uninterrupted.
+- **Detach-Friendly** — Sessions run inside remote tmux, so you can close Hermes Gate at any time. Reconnect later and pick up right where you left off — no lost work, no restarted agents.
+- **Multi-Server, Multi-Session** — Switch between servers and sessions instantly. Each session is independently tracked and managed.
+- **One Command, Zero Config** — `./start.sh` builds, starts, and drops you into the TUI. No config files, no environment variables.
 
-## 安装
+## Features
 
-### 前置要求
+- Interactive server selection with quick switching
+- Remote tmux session create / connect / destroy
+- Live remote Hermes output viewing with prompt sending
+- Network status monitoring (real-time latency + auto-reconnect)
+- Automatic hostname resolution (via `/etc/hosts`)
+- SSH config alias support (use your `~/.ssh/config` host aliases)
+- Remote control keys: `Ctrl+C` interrupt, `Ctrl+E` escape (without leaving the TUI)
+
+## Installation
+
+### Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/)
-- SSH 密钥（`~/.ssh/id_rsa` 或 `~/.ssh/id_ed25519`），已添加到目标服务器的 `authorized_keys`
+- SSH key (`~/.ssh/id_rsa` or `~/.ssh/id_ed25519`) added to the target server's `authorized_keys`
 
-### 步骤
+### Steps
 
 ```bash
 git clone https://github.com/LehaoLin/hermes-gate.git
@@ -27,64 +37,64 @@ cd hermes-gate
 ./start.sh
 ```
 
-首次运行会自动构建 Docker 镜像并进入 TUI。无需任何配置文件。
+The first run will automatically build the Docker image and launch the TUI. No configuration files needed.
 
-## 使用
+## Usage
 
-### 启动
+### Starting
 
 ```bash
-./start.sh              # 启动（已构建过则跳过 build）
-./start.sh --rebuild    # 强制重新构建后启动
+./start.sh              # Start (skips build if already built)
+./start.sh --rebuild    # Force rebuild then start
 ```
 
-### TUI 操作
+### TUI Controls
 
-| 阶段 | 按键 | 功能 |
-|------|------|------|
-| 服务器选择 | `↑↓` | 切换服务器 |
-| | `Enter` | 连接选中服务器 |
-| | `D` | 删除选中服务器 |
-| | `Q` | 退出 |
-| Session 列表 | `↑↓` | 切换 session |
-| | `Enter` | 进入 session |
-| | `N` | 新建 session |
-| | `K` | 销毁 session |
-| | `R` | 刷新列表 |
-| | `Shift+Tab` | 返回服务器选择 |
-| 查看器 | 输入框输入 + `Enter` | 向远程 Hermes 发送指令 |
-| | `Ctrl+B` | 返回 Session 列表 |
+| Phase | Key | Action |
+|-------|-----|--------|
+| Server Selection | `↑↓` | Switch server |
+| | `Enter` | Connect to selected server |
+| | `D` | Delete selected server |
+| | `Q` | Quit |
+| Session List | `↑↓` | Switch session |
+| | `Enter` | Enter session |
+| | `N` | New session |
+| | `K` | Kill session |
+| | `R` | Refresh list |
+| | `Shift+Tab` | Back to server selection |
+| Viewer | Type in input + `Enter` | Send prompt to remote Hermes |
+| | `Ctrl+B` | Back to session list |
 
-### 添加服务器
+### Adding a Server
 
-在服务器选择界面选择「➕ Add Server...」，输入格式：
+Select "➕ Add Server..." on the server selection screen. Input format:
 
 ```
-用户名@IP地址           例: root@1.2.3.4
-用户名@主机名           例: admin@myserver
-用户名@主机名:端口      例: root@1.2.3.4:2222
+username@ip_address       e.g. root@1.2.3.4
+username@hostname         e.g. admin@myserver
+username@hostname:port    e.g. root@1.2.3.4:2222
 ```
 
-默认端口为 22，非标准端口需手动指定。
+Default port is 22. Non-standard ports must be specified explicitly.
 
-## 开发
+## Development
 
-`hermes_gate/` 目录通过 volume 挂载到容器中，修改 Python 代码后**重启容器即可生效**，无需重新构建。
+The `hermes_gate/` directory is mounted as a volume into the container. After modifying Python code, **just restart the container** — no rebuild needed.
 
-以下文件修改后需要重新构建（`./start.sh --rebuild`）：
+The following files require a rebuild (`./start.sh --rebuild`) after changes:
 
 - `pyproject.toml` / `requirements.txt`
 - `Dockerfile` / `entrypoint.sh`
 
-### 常用命令
+### Common Commands
 
 ```bash
-docker compose down              # 停止并删除容器
-docker compose logs hermes-gate  # 查看日志
-docker exec -it hermes-gate bash # 进入容器 shell
+docker compose down              # Stop and remove container
+docker compose logs hermes-gate  # View logs
+docker exec -it hermes-gate bash # Enter container shell
 ```
 
-## 项目结构
+## Project Structure
 
 ```
 hermes-gate/
@@ -94,11 +104,11 @@ hermes-gate/
 ├── start.sh
 ├── pyproject.toml
 └── hermes_gate/
-    ├── __main__.py    # 入口
-    ├── app.py         # TUI 主界面
-    ├── servers.py     # 服务器管理 & hostname 解析
-    ├── session.py     # 远程 tmux session 管理
-    └── network.py     # 网络状态监控
+    ├── __main__.py    # Entry point
+    ├── app.py         # TUI main interface
+    ├── servers.py     # Server management & hostname resolution
+    ├── session.py     # Remote tmux session management
+    └── network.py     # Network status monitoring
 ```
 
 ## License

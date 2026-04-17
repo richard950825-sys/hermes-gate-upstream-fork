@@ -1,4 +1,4 @@
-"""服务器历史记录管理 + SSH config 解析"""
+"""Server history management + SSH config parsing"""
 
 import json
 import os
@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def _config_dir() -> Path:
-    """配置目录"""
+    """Return the config directory"""
     d = Path.home() / ".hermes-gate"
     d.mkdir(parents=True, exist_ok=True)
     return d
@@ -25,7 +25,7 @@ def ssh_config_path() -> Path:
 
 
 def load_servers() -> list[dict]:
-    """加载服务器列表，每项 {"user": "root", "host": "1.2.3.4", "label": "myserver"}"""
+    """Load server list, each item {"user": "root", "host": "1.2.3.4", "label": "myserver"}"""
     f = _servers_file()
     if not f.exists():
         return []
@@ -36,7 +36,7 @@ def load_servers() -> list[dict]:
 
 
 def save_servers(servers: list[dict]) -> None:
-    """保存服务器列表"""
+    """Save server list"""
     f = _servers_file()
     f.write_text(json.dumps(servers, indent=2, ensure_ascii=False))
 
@@ -44,7 +44,7 @@ def save_servers(servers: list[dict]) -> None:
 def add_server(
     user: str, host: str, port: str = "22", ssh_alias: str | None = None
 ) -> dict:
-    """添加服务器并返回，如果已存在则返回已有项"""
+    """Add server and return it; returns existing entry if already present"""
     servers = load_servers()
     for s in servers:
         if s["user"] == user and s["host"] == host and s.get("port", "22") == port:
@@ -61,7 +61,7 @@ def add_server(
 
 
 def remove_server(user: str, host: str, port: str = "22") -> None:
-    """移除服务器"""
+    """Remove server"""
     servers = load_servers()
     servers = [
         s
@@ -92,10 +92,10 @@ def _resolve_from_hosts(host: str) -> str | None:
 
 def resolve_host(host: str) -> tuple[str, str | None]:
     """
-    解析 host：
-    - 如果是 IP，返回 (ip, None)
-    - 如果是 hostname，查找 /host/etc/hosts → /etc/hosts 得到 IP，返回 (hostname, ip)
-    如果找不到，返回 (host, None)
+    Resolve host:
+    - If IP, return (ip, None)
+    - If hostname, look up /host/etc/hosts → /etc/hosts for IP, return (hostname, ip)
+    If not found, return (host, None)
     """
     parts = host.split(".")
     if len(parts) == 4 and all(p.isdigit() for p in parts):
@@ -109,17 +109,17 @@ def resolve_host(host: str) -> tuple[str, str | None]:
 
 
 def resolve_to_ip(host: str) -> str:
-    """将 hostname 解析为 IP，用于 SSH/ping 连接。无法解析则原样返回。"""
+    """Resolve hostname to IP for SSH/ping connections. Returns as-is if unresolvable."""
     _, ip = resolve_host(host)
     return ip or host
 
 
 def display_name(server: dict) -> str:
     """
-    生成显示名：
-    - IP 登录 → root@1.2.3.4
-    - hostname 登录且 /etc/hosts 有解析 → admin@hostname (1.2.3.4)
-    - 非 22 端口 → 附加 :port
+    Generate display name:
+    - IP login → root@1.2.3.4
+    - hostname login with /etc/hosts resolution → admin@hostname (1.2.3.4)
+    - Non-22 port → append :port
     """
     user = server["user"]
     host = server["host"]
@@ -184,7 +184,7 @@ def _parse_ssh_config_hosts() -> list[dict]:
 
 
 def resolve_ssh_config(host_alias: str) -> dict | None:
-    """从 ~/.ssh/config 解析 Host 别名，返回 {user, host, port} 或 None。"""
+    """Resolve SSH config Host alias, returning {user, host, port} or None."""
     for block in _parse_ssh_config_hosts():
         if block["alias"] == host_alias:
             return {

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hermes-gate"
 version = "0.1.0"
-description = "Hermes Gate — 远程连接云服务器 Hermes tmux session 的 TUI 工具"
+description = "Hermes Gate — TUI tool for remotely connecting to Hermes tmux sessions on cloud servers"
 requires-python = ">=3.11"
 dependencies = [
     "textual>=3.0.0",

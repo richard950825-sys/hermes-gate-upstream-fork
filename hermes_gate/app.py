@@ -528,7 +528,7 @@ class HermesGateApp(App):
 
         The user gets a real terminal with the remote tmux session.
         - Ctrl+B detaches and returns to the session list.
-        - A green status bar at the bottom shows connection status.
+        - A green status bar at the bottom shows connection status + hint.
         """
         mgr = self.session_mgr
         if not mgr:
@@ -543,26 +543,25 @@ class HermesGateApp(App):
         # Configure tmux: Ctrl+B → detach, green status bar at bottom
         self._configure_tmux_for_attach(mgr, name)
 
-        # Suspend Textual and run SSH/mosh attach — user gets real terminal
+        # Suspend Textual and run SSH attach — user gets real terminal
+        # The session list DOM stays mounted; after suspend returns we just
+        # refresh it in place, avoiding any DuplicateIds issues entirely.
         cmd = mgr.attach_cmd(session_id)
         try:
             with self.suspend():
                 subprocess.call(cmd)
         except Exception:
-            # Fallback if suspend fails — just run directly
             subprocess.call(cmd)
 
         # Restore tmux session options to defaults
         self._restore_tmux_after_detach(mgr, name)
 
-        # Return to session list (refreshed)
-        if self._server and self.session_mgr:
-            self._show_session_list(
-                self._server["user"],
-                self._server["host"],
-                self._server.get("port", "22"),
-                self._server.get("ssh_alias"),
-            )
+        # Refresh the session list (DOM was never touched, just re-query)
+        self._refresh_sessions()
+        try:
+            self.query_one("#session-list", ListView).focus()
+        except Exception:
+            pass
 
     # ─── tmux Configuration ─────────────────────────────────────────
 
