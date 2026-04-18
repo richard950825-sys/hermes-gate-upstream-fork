@@ -21,7 +21,7 @@ username@hostname:port    e.g. root@1.2.3.4:2222
 ### Prerequisites
 
 - Docker installed and running
-- SSH private key (`id_rsa` or `id_ed25519`) in local `~/.ssh` directory, added to the target server's `authorized_keys`
+- SSH key in local `~/.ssh` directory, added to the target server's `authorized_keys`
 - Remote server has `tmux` and `hermes` installed
 
 ## Daily Use

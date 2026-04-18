@@ -1,6 +1,6 @@
 # 🏛️ Hermes Gate
 
-A feature-rich **terminal TUI** for remotely managing [Hermes](https://github.com/NomicFoundation/hermes) tmux sessions on cloud servers — all from a single Docker container, zero config.
+A feature-rich **terminal TUI** for remotely managing [Hermes](https://github.com/NomicFoundation/hermes) tmux sessions on cloud servers — all from a single Docker container.
 
 ## Why Hermes Gate?
 
@@ -29,7 +29,7 @@ Running Hermes on a remote server usually means juggling SSH terminals, worrying
 ### Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/)
-- SSH key (`~/.ssh/id_rsa` or `~/.ssh/id_ed25519`) added to the target server's `authorized_keys`
+- SSH key in `~/.ssh/` added to the target server's `authorized_keys` (any key type: `id_rsa`, `id_ed25519`, custom `IdentityFile`, or SSH agent)
 
 ### Steps
 
@@ -39,7 +39,7 @@ cd hermes-gate
 ./start.sh
 ```
 
-The first run will automatically build the Docker image and launch the TUI. Make sure you have Docker running and your SSH key (`~/.ssh/id_rsa` or `~/.ssh/id_ed25519`) set up before starting.
+The first run will automatically build the Docker image and launch the TUI. Make sure you have Docker running and your SSH key set up before starting.
 
 ## Usage
 
