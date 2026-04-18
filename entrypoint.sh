@@ -8,11 +8,9 @@ if [ ! -d "$SOURCE_SSH_DIR" ]; then
     SOURCE_SSH_DIR="$RUNTIME_SSH_DIR"
 fi
 
-if [ ! -f "$SOURCE_SSH_DIR/id_rsa" ] \
-    && [ ! -f "$SOURCE_SSH_DIR/id_ed25519" ] \
-    && [ ! -f "$SOURCE_SSH_DIR/id_ecdsa" ]; then
-    echo "No SSH key found. Mount your host ~/.ssh directory."
-    exit 1
+if [ ! -d "$SOURCE_SSH_DIR" ] || [ -z "$(ls -A "$SOURCE_SSH_DIR" 2>/dev/null)" ]; then
+    echo "Warning: SSH directory is empty or missing. SSH connections may fail."
+    echo "Mount your host ~/.ssh directory for SSH key access."
 fi
 
 if [ "$SOURCE_SSH_DIR" != "$RUNTIME_SSH_DIR" ]; then
