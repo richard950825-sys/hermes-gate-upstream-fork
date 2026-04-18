@@ -87,25 +87,28 @@ class SessionManager:
 
     # ─── SSH Low-level ─────────────────────────────────────────────
 
-    def ssh_base_args(self, timeout: int = 10) -> list[str]:
-        """Build SSH argv prefix for this server, preserving config aliases."""
-        cmd = [
-            "ssh",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "StrictHostKeyChecking=accept-new",
-            "-o",
-            f"ConnectTimeout={timeout}",
+    def _ssh_options(self, timeout: int = 10) -> list[str]:
+        opts = [
+            "-o", "BatchMode=yes",
+            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", f"ConnectTimeout={timeout}",
         ]
         if self.ssh_alias:
             ssh_config = ssh_config_path()
             if ssh_config.exists():
-                cmd.extend(["-F", str(ssh_config)])
-            cmd.append(self.ssh_alias)
+                opts.extend(["-F", str(ssh_config)])
         else:
-            cmd.extend(["-p", self.port, f"{self.user}@{self._ip}"])
-        return cmd
+            opts.extend(["-p", self.port])
+        return opts
+
+    def _ssh_destination(self) -> list[str]:
+        if self.ssh_alias:
+            return [self.ssh_alias]
+        return [f"{self.user}@{self._ip}"]
+
+    def ssh_base_args(self, timeout: int = 10) -> list[str]:
+        """Build SSH argv prefix for this server, preserving config aliases."""
+        return ["ssh", *self._ssh_options(timeout), *self._ssh_destination()]
 
     @staticmethod
     def login_shell_command(command: str) -> str:
@@ -251,4 +254,8 @@ class SessionManager:
 
     def attach_cmd(self, session_id: int) -> list[str]:
         name = f"gate-{session_id}"
-        return [*self.ssh_base_args(), "-t", f"tmux attach -d -t {name}"]
+        cmd = ["ssh", "-t"]
+        cmd.extend(self._ssh_options())
+        cmd.extend(self._ssh_destination())
+        cmd.append(f"tmux attach -d -t {name}")
+        return cmd
