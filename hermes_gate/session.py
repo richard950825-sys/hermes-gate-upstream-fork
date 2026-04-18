@@ -156,6 +156,26 @@ class SessionManager:
                 info[parts[0]] = parts[1]
         return info
 
+    def _session_previews(self, names: list[str]) -> dict[str, str]:
+        """Fetch last non-empty line from each tmux session's pane.
+
+        Returns {session_name: preview_text}. Uses a single SSH call with
+        a for-loop to avoid N round trips.
+        """
+        if not names:
+            return {}
+        q = shlex.quote
+        script = "for s in " + " ".join(q(n) for n in names) + "; do echo -n \"$s:\"; tmux capture-pane -t \"$s\" -p -S -20 2>/dev/null | sed '/^$/d' | tail -1; done"
+        result = self._ssh_cmd(self.login_shell_command(script), timeout=10)
+        if result.returncode != 0:
+            return {}
+        previews = {}
+        for line in result.stdout.splitlines():
+            idx = line.find(":")
+            if idx > 0:
+                previews[line[:idx]] = line[idx + 1:]
+        return previews
+
     # ─── Session Operations ────────────────────────────────────────
 
     def list_sessions(self) -> list[dict]:
@@ -164,6 +184,12 @@ class SessionManager:
 
         remote_info = self._remote_session_info()
         remote_ids = {}
+        for name, epoch in remote_info.items():
+            if (match := _GATE_SESSION_RE.match(name)):
+                remote_ids[int(match.group(1))] = epoch
+
+        alive_names = [f"gate-{sid}" for sid in remote_ids]
+        previews = self._session_previews(alive_names)
         for name, epoch in remote_info.items():
             if (match := _GATE_SESSION_RE.match(name)):
                 remote_ids[int(match.group(1))] = epoch
@@ -182,6 +208,10 @@ class SessionManager:
                     ).strftime("%Y-%m-%dT%H:%M:%S")
             entry["name"] = name
             entry["alive"] = sid in remote_ids
+            preview = previews.get(name, "")
+            if preview and len(preview) > 40:
+                preview = preview[:37] + "..."
+            entry["preview"] = preview
             result.append(entry)
         return result
 

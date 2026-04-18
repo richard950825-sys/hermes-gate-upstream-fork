@@ -534,10 +534,13 @@ class HermesGateApp(App):
                     created = (
                         created.split("T")[0][5:] + " " + created.split("T")[1][:5]
                     )
+                preview = s.get("preview", "")
+                if preview:
+                    text = f" {alive} gate-{s['id']}   ({created})\n     [dim]{preview}[/dim]"
+                else:
+                    text = f" {alive} gate-{s['id']}   ({created})"
                 await lv.append(
-                    ListItem(
-                        Label(f" {alive} gate-{s['id']}   ({created})"), name="sess"
-                    )
+                    ListItem(Label(Text.from_markup(text)), name="sess")
                 )
             await lv.append(ListItem(Label(" ➕  New Session..."), name="new-sess"))
             lv.focus()
