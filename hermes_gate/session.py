@@ -186,7 +186,11 @@ class SessionManager:
         return result
 
     def capture_session_preview(self, session_id: int) -> str:
-        """Capture the last meaningful content line from a session's tmux pane."""
+        """Capture the last user-sent message from a session's tmux pane.
+
+        Hermes shows user messages with a "●" prefix. We look for the last
+        such line and extract the message text.
+        """
         name = f"gate-{session_id}"
         result = self._ssh_cmd(
             self.tmux_command("capture-pane", "-t", name, "-p", "-S", "-50"),
@@ -194,21 +198,16 @@ class SessionManager:
         )
         if result.returncode != 0:
             return ""
-        lines = result.stdout.splitlines()
-        # Walk backwards to find the first line with real content
-        for line in reversed(lines):
+        for line in reversed(result.stdout.splitlines()):
             stripped = line.strip()
             if not stripped:
                 continue
-            # Skip separator lines
-            if re.match(r"^[-=~_*+━─═│┌┐└┘├┤┬┴┼]+$", stripped):
-                continue
-            # Skip prompt-only lines
-            if stripped in (">", ">", "$", "#"):
-                continue
-            if len(stripped) > 40:
-                stripped = stripped[:37] + "..."
-            return stripped
+            if stripped.startswith("● "):
+                msg = stripped[2:].strip()
+                if msg and len(msg) > 40:
+                    msg = msg[:37] + "..."
+                return msg
+        return ""
         return ""
 
     def create_session(self) -> dict:
