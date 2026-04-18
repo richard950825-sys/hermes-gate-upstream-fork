@@ -134,18 +134,27 @@ class SessionManager:
             raise ConnectionError(f"SSH connection failed: {result.stderr.strip()}")
         return result.stdout.strip()
 
-    def _remote_session_names(self) -> set[str]:
-        """Return remote tmux session names, treating no sessions as empty."""
+    def _remote_session_info(self) -> dict[str, str]:
+        """Return {session_name: created_epoch} for remote tmux sessions."""
         result = self._ssh_cmd(
-            self.tmux_command("list-sessions", "-F", "#{session_name}", suppress_stderr=True)
+            self.tmux_command(
+                "list-sessions",
+                "-F", "#{session_name}\t#{session_created}",
+                suppress_stderr=True,
+            )
         )
         if result.returncode == 255:
             raise ConnectionError(f"SSH connection failed: {result.stderr.strip()}")
         if result.returncode == 127:
             raise RuntimeError("tmux is not installed or is not available in the login PATH")
         if result.returncode != 0:
-            return set()
-        return {line.strip() for line in result.stdout.splitlines() if line.strip()}
+            return {}
+        info = {}
+        for line in result.stdout.splitlines():
+            parts = line.strip().split("\t")
+            if len(parts) == 2:
+                info[parts[0]] = parts[1]
+        return info
 
     # ─── Session Operations ────────────────────────────────────────
 
@@ -153,22 +162,26 @@ class SessionManager:
         """List local records and discover existing remote gate-* sessions."""
         local = _load_local(self.user, self.host, self.port)
 
-        remote_names = self._remote_session_names()
-        remote_ids = {
-            int(match.group(1))
-            for name in remote_names
-            if (match := _GATE_SESSION_RE.match(name))
-        }
+        remote_info = self._remote_session_info()
+        remote_ids = {}
+        for name, epoch in remote_info.items():
+            if (match := _GATE_SESSION_RE.match(name)):
+                remote_ids[int(match.group(1))] = epoch
 
         result = []
         local_by_id = {s["id"]: s for s in local if isinstance(s.get("id"), int)}
-        for sid in sorted(set(local_by_id) | remote_ids):
+        for sid in sorted(set(local_by_id) | set(remote_ids)):
             entry = dict(local_by_id.get(sid, {"id": sid, "created": ""}))
             name = f"gate-{sid}"
-            entry["name"] = name
-            entry["alive"] = sid in remote_ids
             if sid not in local_by_id:
                 entry["remote_only"] = True
+                epoch = remote_ids.get(sid, "")
+                if epoch:
+                    entry["created"] = datetime.fromtimestamp(
+                        int(epoch)
+                    ).strftime("%Y-%m-%dT%H:%M:%S")
+            entry["name"] = name
+            entry["alive"] = sid in remote_ids
             result.append(entry)
         return result
 

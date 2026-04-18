@@ -54,7 +54,7 @@ def test_list_sessions_discovers_remote_gate_sessions_without_local_records():
 
     remote_sessions = MagicMock()
     remote_sessions.returncode = 0
-    remote_sessions.stdout = "gate-0\nother-session\ngate-2\n"
+    remote_sessions.stdout = "gate-0\t1710000000\nother-session\t1710000001\ngate-2\t1710000002\n"
     remote_sessions.stderr = ""
 
     with patch.object(mgr, "_ssh_cmd", return_value=remote_sessions):
