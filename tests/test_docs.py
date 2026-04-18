@@ -24,8 +24,8 @@ def test_readme_matches_guide_startup():
     guide = ROOT / "GUIDE.md"
     readme_content = readme.read_text(encoding="utf-8")
     guide_content = guide.read_text(encoding="utf-8")
-    assert "./start.sh" in readme_content
-    assert "./start.sh" in guide_content
+    assert "./run.sh" in readme_content
+    assert "./run.sh" in guide_content
 
 
 def test_readme_does_not_require_config_file():

@@ -5,7 +5,7 @@
 ### 1. One-Click Start
 
 ```bash
-./start.sh
+./run.sh
 ```
 
 The first run will automatically build the Docker image and launch the TUI interactive interface. Make sure Docker is running and your SSH key is set up (see Prerequisites below).
@@ -27,8 +27,8 @@ username@hostname:port    e.g. root@1.2.3.4:2222
 ## Daily Use
 
 ```bash
-./start.sh              # Start and enter container (skips build if already built)
-./start.sh --rebuild    # Force rebuild then start
+./run.sh              # Start and enter container (skips build if already built)
+./run.sh --rebuild    # Force rebuild then start
 ```
 
 The container stops automatically when you exit the TUI.
@@ -37,7 +37,7 @@ The container stops automatically when you exit the TUI.
 
 Python code under `hermes_gate/` is mounted via a Docker volume. After modification, **no rebuild is needed** — just restart the container.
 
-The following files **require a rebuild** (`./start.sh --rebuild`) after changes:
+The following files **require a rebuild** (`./run.sh --rebuild`) after changes:
 
 - `pyproject.toml`
 - `requirements.txt`
@@ -55,4 +55,4 @@ docker exec -it hermes-gate bash # Enter container shell
 ## Notes
 
 - Make sure you have SSH keys (`id_rsa` or `id_ed25519`) in your local `~/.ssh` directory before starting
-- The container stops automatically when you exit the TUI; just run `./start.sh` again next time
+- The container stops automatically when you exit the TUI; just run `./run.sh` again next time

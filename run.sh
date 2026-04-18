@@ -2,7 +2,7 @@
 
 show_help() {
     cat <<'HELP'
-Usage: ./start.sh [OPTION]
+Usage: ./run.sh [OPTION]
 
 Start the Hermes Gate TUI.
 

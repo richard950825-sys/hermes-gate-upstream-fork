@@ -4,15 +4,15 @@ A feature-rich **terminal TUI** for remotely managing [Hermes](https://github.co
 
 ## Why Hermes Gate?
 
-> **Lifecycle clarification:** Hermes Gate is a **temporary local client**. When you quit the TUI, the Docker container stops. Your remote tmux / Hermes sessions on the server are **not affected** — they keep running. Just run `./start.sh` again to reconnect. Nothing is lost except the local container state.
+> **Lifecycle clarification:** Hermes Gate is a **temporary local client**. When you quit the TUI, the Docker container stops. Your remote tmux / Hermes sessions on the server are **not affected** — they keep running. Just run `./run.sh` again to reconnect. Nothing is lost except the local container state.
 
 Running Hermes on a remote server usually means juggling SSH terminals, worrying about dropped connections, and manually managing tmux sessions. Hermes Gate solves all of that:
 
 - **Full TUI Experience** — Browse servers, manage sessions, view live Hermes output, and send prompts, all from an interactive terminal UI built with [Textual](https://textual.textualize.io/). No raw SSH commands to remember.
 - **Network Status Monitoring** — Real-time latency monitoring with TCP-level probing. Connection status is displayed in the TUI so you know when the remote server is reachable. Note: if your SSH session drops, you will need to re-enter the session manually.
-- **Session Persistence via tmux** — Sessions run inside remote tmux, so your remote processes keep running even if you close Hermes Gate. However, note that the Docker container stops on TUI exit — run `./start.sh` again to reattach.
+- **Session Persistence via tmux** — Sessions run inside remote tmux, so your remote processes keep running even if you close Hermes Gate. However, note that the Docker container stops on TUI exit — run `./run.sh` again to reattach.
 - **Multi-Server, Multi-Session** — Switch between servers and sessions instantly. Each session is independently tracked and managed.
-- **One Command Start** — `./start.sh` builds, starts, and drops you into the TUI. Requires Docker and an SSH key in `~/.ssh/` (see Prerequisites).
+- **One Command Start** — `./run.sh` builds, starts, and drops you into the TUI. Requires Docker and an SSH key in `~/.ssh/` (see Prerequisites).
 
 ## Features
 
@@ -36,7 +36,7 @@ Running Hermes on a remote server usually means juggling SSH terminals, worrying
 ```bash
 git clone https://github.com/LehaoLin/hermes-gate.git
 cd hermes-gate
-./start.sh
+./run.sh
 ```
 
 The first run will automatically build the Docker image and launch the TUI. Make sure you have Docker running and your SSH key set up before starting.
@@ -46,10 +46,10 @@ The first run will automatically build the Docker image and launch the TUI. Make
 ### Starting
 
 ```bash
-./start.sh              # Start (skips build if already built)
-./start.sh --rebuild    # Force rebuild then start
-./start.sh --update     # git pull + rebuild + start
-./start.sh -h           # Show help
+./run.sh              # Start (skips build if already built)
+./run.sh --rebuild    # Force rebuild then start
+./run.sh --update     # git pull + rebuild + start
+./run.sh -h           # Show help
 ```
 
 ### TUI Controls
@@ -85,7 +85,7 @@ Default port is 22. Non-standard ports must be specified explicitly.
 
 The `hermes_gate/` directory is mounted as a volume into the container. After modifying Python code, **just restart the container** — no rebuild needed.
 
-The following files require a rebuild (`./start.sh --rebuild`) after changes:
+The following files require a rebuild (`./run.sh --rebuild`) after changes:
 
 - `pyproject.toml` / `requirements.txt`
 - `Dockerfile` / `entrypoint.sh`
@@ -105,7 +105,7 @@ hermes-gate/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── entrypoint.sh
-├── start.sh
+├── run.sh
 ├── pyproject.toml
 └── hermes_gate/
     ├── __main__.py    # Entry point

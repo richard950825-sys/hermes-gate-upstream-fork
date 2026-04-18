@@ -436,7 +436,7 @@ Users should be able to complete first-time setup by following `GUIDE.md`. Docum
 2. Change first-time use to:
 
    ```bash
-   ./start.sh
+   ./run.sh
    ```
 
    Then in the TUI, select `Add Server...` and enter `user@host` or `user@host:port`.
