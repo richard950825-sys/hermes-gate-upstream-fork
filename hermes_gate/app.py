@@ -16,6 +16,7 @@ from textual.widgets import (
     ListItem,
     ListView,
     Input,
+    LoadingIndicator,
 )
 from textual import work
 from textual.screen import ModalScreen
@@ -142,6 +143,32 @@ class ConfirmKillScreen(ModalScreen[bool]):
 
     def action_cancel(self) -> None:
         self.dismiss(False)
+
+
+class WaitingScreen(ModalScreen[None]):
+    CSS = """
+    WaitingScreen { align: center middle; }
+    #waiting-dialog {
+        width: 52; height: auto;
+        border: thick $warning; background: $surface; padding: 1 2;
+    }
+    #waiting-label { margin-bottom: 1; }
+    """
+    BINDINGS = []
+
+    def __init__(self, message: str):
+        super().__init__()
+        self._message = message
+
+    def compose(self) -> ComposeResult:
+        with Container(id="waiting-dialog"):
+            yield Label(self._message, id="waiting-label")
+            yield LoadingIndicator()
+
+    def set_error(self, message: str) -> None:
+        self.query_one("#waiting-label", Label).update(message)
+        self.query_one(LoadingIndicator).remove()
+        self.set_timer(3, self.dismiss)
 
 
 # ─── Main Application ────────────────────────────────────────────
@@ -547,30 +574,30 @@ class HermesGateApp(App):
 
         self.push_screen(ConfirmKillScreen(name), handle)
 
-    @work(exit_on_error=False)
-    async def _kill(self, sid: int) -> None:
-        """Kill session entirely in the background via SSH.
-
-        Sends 'q' to hermes inside the tmux session for graceful exit,
-        then kills the tmux session and removes the local record.
-        The user stays on the session list the whole time.
-        """
+    def _kill(self, sid: int) -> None:
         if not self.session_mgr:
             return
+        name = f"gate-{sid}"
+        screen = WaitingScreen(f"Waiting for {name} to be killed...")
+        self.push_screen(screen)
+
+        async def _do_kill() -> None:
+            await self._do_kill_session(sid, screen)
+
+        self.run_worker(_do_kill(), exit_on_error=False)
+
+    async def _do_kill_session(self, sid: int, screen: WaitingScreen) -> None:
         name = f"gate-{sid}"
         loop = asyncio.get_event_loop()
         try:
             result = await loop.run_in_executor(None, self.session_mgr.kill_session, sid)
         except Exception as e:
-            self._hint("session-hint", f"Failed to kill {name}: {e}")
+            screen.set_error(f"Failed to kill {name}: {e}")
             return
 
+        self.pop_screen()
         if result.get("tmux_missing"):
-            self._hint(
-                "session-hint",
-                f"{name} killed, local record removed",
-                error=False,
-            )
+            self._hint("session-hint", f"{name} killed, local record removed", error=False)
         else:
             self._hint("session-hint", f"{name} killed", error=False)
         self._refresh_sessions()

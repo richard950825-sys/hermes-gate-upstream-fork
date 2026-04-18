@@ -7,11 +7,7 @@ pytest.importorskip("textual")
 
 from textual.widgets import Label, ListView
 
-from hermes_gate.app import HermesGateApp
-
-
-async def _run_kill(app: HermesGateApp, sid: int) -> None:
-    await HermesGateApp._kill.__wrapped__(app, sid)
+from hermes_gate.app import HermesGateApp, WaitingScreen
 
 
 def test_session_bindings_use_lowercase_k_for_kill():
@@ -87,8 +83,10 @@ async def test_kill_updates_hint_when_tmux_session_missing_but_local_record_remo
     app.session_mgr.kill_session.return_value = {"removed": True, "tmux_missing": True}
     app._hint = MagicMock()
     app._refresh_sessions = MagicMock()
+    app.pop_screen = MagicMock()
 
-    await _run_kill(app, 9)
+    screen = MagicMock(spec=WaitingScreen)
+    await app._do_kill_session(9, screen)
 
     app._hint.assert_called_once_with(
         "session-hint",
@@ -106,9 +104,11 @@ async def test_kill_shows_error_when_remote_cleanup_fails():
     app._hint = MagicMock()
     app._refresh_sessions = MagicMock()
 
-    await _run_kill(app, 5)
+    screen = MagicMock(spec=WaitingScreen)
+    await app._do_kill_session(5, screen)
 
-    app._hint.assert_called_once_with("session-hint", "Failed to kill gate-5: permission denied")
+    screen.set_error.assert_called_once_with("Failed to kill gate-5: permission denied")
+    app._hint.assert_not_called()
     app._refresh_sessions.assert_not_called()
 
 
