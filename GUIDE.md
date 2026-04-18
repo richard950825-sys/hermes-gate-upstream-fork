@@ -8,7 +8,7 @@
 ./start.sh
 ```
 
-The first run will automatically build the Docker image and launch the TUI interactive interface. No configuration files needed.
+The first run will automatically build the Docker image and launch the TUI interactive interface. Make sure Docker is running and your SSH key is set up (see Prerequisites below).
 
 After entering, select "➕ Add Server..." and input:
 

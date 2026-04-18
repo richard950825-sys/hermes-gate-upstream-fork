@@ -7,17 +7,17 @@ A feature-rich **terminal TUI** for remotely managing [Hermes](https://github.co
 Running Hermes on a remote server usually means juggling SSH terminals, worrying about dropped connections, and manually managing tmux sessions. Hermes Gate solves all of that:
 
 - **Full TUI Experience** — Browse servers, manage sessions, view live Hermes output, and send prompts, all from an interactive terminal UI built with [Textual](https://textual.textualize.io/). No raw SSH commands to remember.
-- **Auto-Reconnect on Network Drops** — Real-time latency monitoring with TCP-level probing. If your connection drops, Hermes Gate automatically reconnects and resumes output — your remote Hermes keeps running uninterrupted.
-- **Detach-Friendly** — Sessions run inside remote tmux, so you can close Hermes Gate at any time. Reconnect later and pick up right where you left off — no lost work, no restarted agents.
+- **Network Status Monitoring** — Real-time latency monitoring with TCP-level probing. Connection status is displayed in the TUI so you know when the remote server is reachable. Note: if your SSH session drops, you will need to re-enter the session manually.
+- **Session Persistence via tmux** — Sessions run inside remote tmux, so your remote processes keep running even if you close Hermes Gate. However, note that the Docker container stops on TUI exit — run `./start.sh` again to reattach.
 - **Multi-Server, Multi-Session** — Switch between servers and sessions instantly. Each session is independently tracked and managed.
-- **One Command, Zero Config** — `./start.sh` builds, starts, and drops you into the TUI. No config files, no environment variables.
+- **One Command Start** — `./start.sh` builds, starts, and drops you into the TUI. Requires Docker and an SSH key in `~/.ssh/` (see Prerequisites).
 
 ## Features
 
 - Interactive server selection with quick switching
 - Remote tmux session create / connect / destroy
 - Live remote Hermes output viewing with prompt sending
-- Network status monitoring (real-time latency + auto-reconnect)
+- Network status monitoring (real-time latency display and connection status)
 - Automatic hostname resolution (via `/etc/hosts`)
 - SSH config alias support (use your `~/.ssh/config` host aliases)
 - Remote control keys: `Ctrl+C` interrupt, `Ctrl+E` escape (without leaving the TUI)
@@ -37,7 +37,7 @@ cd hermes-gate
 ./start.sh
 ```
 
-The first run will automatically build the Docker image and launch the TUI. No configuration files needed.
+The first run will automatically build the Docker image and launch the TUI. Make sure you have Docker running and your SSH key (`~/.ssh/id_rsa` or `~/.ssh/id_ed25519`) set up before starting.
 
 ## Usage
 
@@ -61,7 +61,7 @@ The first run will automatically build the Docker image and launch the TUI. No c
 | | `N` | New session |
 | | `K` | Kill session |
 | | `R` | Refresh list |
-| | `Shift+Tab` | Back to server selection |
+| | `Ctrl+B` | Back to server selection |
 | Viewer | Type in input + `Enter` | Send prompt to remote Hermes |
 | | `Ctrl+B` | Back to session list |
 
