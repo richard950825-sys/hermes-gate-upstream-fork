@@ -48,6 +48,7 @@ The first run will automatically build the Docker image and launch the TUI. Make
 ```bash
 ./start.sh              # Start (skips build if already built)
 ./start.sh --rebuild    # Force rebuild then start
+./start.sh --update     # git pull + rebuild + start
 ```
 
 ### TUI Controls

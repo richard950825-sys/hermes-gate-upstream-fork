@@ -14,6 +14,10 @@ trap cleanup EXIT INT TERM
 FORCE_REBUILD=false
 if [ "$1" = "--rebuild" ]; then
     FORCE_REBUILD=true
+elif [ "$1" = "--update" ]; then
+    echo "Pulling latest changes..."
+    git pull
+    FORCE_REBUILD=true
 fi
 
 if [ "$FORCE_REBUILD" = true ]; then
