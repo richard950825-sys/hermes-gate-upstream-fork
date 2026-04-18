@@ -4,6 +4,8 @@ A feature-rich **terminal TUI** for remotely managing [Hermes](https://github.co
 
 ## Why Hermes Gate?
 
+> **Lifecycle clarification:** Hermes Gate is a **temporary local client**. When you quit the TUI, the Docker container stops. Your remote tmux / Hermes sessions on the server are **not affected** — they keep running. Just run `./start.sh` again to reconnect. Nothing is lost except the local container state.
+
 Running Hermes on a remote server usually means juggling SSH terminals, worrying about dropped connections, and manually managing tmux sessions. Hermes Gate solves all of that:
 
 - **Full TUI Experience** — Browse servers, manage sessions, view live Hermes output, and send prompts, all from an interactive terminal UI built with [Textual](https://textual.textualize.io/). No raw SSH commands to remember.
