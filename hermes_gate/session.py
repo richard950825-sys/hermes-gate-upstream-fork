@@ -166,7 +166,7 @@ class SessionManager:
             return {}
         q = shlex.quote
         # Filter: remove empty lines and lines that are purely separator chars
-        filter_cmd = "sed '/^$/d; /^[-=~_*+]*$/d; /^│/d' | tail -1"
+        filter_cmd = r"sed '/^$/d; /^[-=~_*+━─═]*$/d; /^│/d' | tail -1"
         script = "for s in " + " ".join(q(n) for n in names) + "; do echo -n \"$s:\"; tmux capture-pane -t \"$s\" -p -S -30 2>/dev/null | " + filter_cmd + "; done"
         result = self._ssh_cmd(self.login_shell_command(script), timeout=10)
         if result.returncode != 0:
