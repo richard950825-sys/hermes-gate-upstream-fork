@@ -111,6 +111,10 @@ hermes-gate/
     └── network.py     # Network status monitoring
 ```
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=LehaoLin/hermes-gate&type=Date)](https://star-history.com/#LehaoLin/hermes-gate&Date)
+
 ## License
 
 MIT
