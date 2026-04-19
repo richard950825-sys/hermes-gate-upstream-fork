@@ -81,12 +81,27 @@ function Stop-IfIdle([string]$Name) {
 # ---------------------------------------------------------------------------
 $script:WatcherJob = $null
 
+function Get-NotificationHostCandidates {
+    $candidates = @()
+    $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($pwsh) {
+        $candidates += $pwsh.Source
+    }
+    $windowsPowerShell = Get-Command powershell -ErrorAction SilentlyContinue
+    if ($windowsPowerShell) {
+        $candidates += $windowsPowerShell.Source
+    }
+    return @($candidates | Select-Object -Unique)
+}
+
 function Start-NotifyWatcher {
     New-Item -ItemType Directory -Force -Path $NotifyDir | Out-Null
     $dir = $NotifyDir
     $soundsDir = Join-Path $ProjectDir "sounds"
+    $notificationHosts = Get-NotificationHostCandidates
     $script:WatcherJob = Start-Job -ScriptBlock {
-        param($NotifyDir, $SoundsDir)
+        param($NotifyDir, $SoundsDir, $NotificationHosts)
+        $logPath = Join-Path $NotifyDir "watcher.log"
         while ($true) {
             Get-ChildItem -Path $NotifyDir -Filter "notify-*.json" -ErrorAction SilentlyContinue | ForEach-Object {
                 try {
@@ -102,34 +117,72 @@ function Start-NotifyWatcher {
                             $player.Play()
                         }
                     }
+
                     # Visible notifications run in a separate PowerShell process so toast/UI
                     # APIs execute in a normal user-session context instead of the background job.
                     $escapedTitle = $title.Replace("'", "''")
                     $escapedMsg = $msg.Replace("'", "''")
+                    $escapedLogPath = $logPath.Replace("'", "''")
                     $notifyCommand = @"
-if (Get-Module -ListAvailable -Name BurntToast -ErrorAction SilentlyContinue) {
-    try {
-        Import-Module BurntToast -ErrorAction Stop
-        New-BurntToastNotification -Text '$escapedTitle', '$escapedMsg' 2>`$null | Out-Null
-        exit 0
-    }
-    catch {}
+`$ErrorActionPreference = 'Stop'
+`$logPath = '$escapedLogPath'
+function Write-NotifyLog([string]`$entry) {
+    Add-Content -Path `$logPath -Value ((Get-Date -Format s) + ' ' + `$entry)
 }
+try {
+    if (-not (Get-Module -ListAvailable -Name BurntToast -ErrorAction SilentlyContinue)) {
+        throw 'BurntToast module not available'
+    }
+    Import-Module BurntToast -ErrorAction Stop
+    New-BurntToastNotification -Text '$escapedTitle', '$escapedMsg' 2>`$null | Out-Null
+    Write-NotifyLog 'Toast notification sent successfully'
+    exit 0
+}
+catch {
+    Write-NotifyLog ('Notification host failed: ' + `$_)
+    exit 1
+}
+"@
+
+                    $toastShown = $false
+                    foreach ($notificationHost in $NotificationHosts) {
+                        try {
+                            $process = Start-Process $notificationHost -ArgumentList @(
+                                '-NoProfile',
+                                '-WindowStyle', 'Hidden',
+                                '-Command',
+                                $notifyCommand
+                            ) -WindowStyle Hidden -PassThru -Wait
+                            if ($process.ExitCode -eq 0) {
+                                $toastShown = $true
+                                break
+                            }
+                        }
+                        catch {
+                            Add-Content -Path $logPath -Value ((Get-Date -Format s) + ' Notification host failed: ' + $_)
+                        }
+                    }
+
+                    if (-not $toastShown) {
+                        Add-Content -Path $logPath -Value ((Get-Date -Format s) + ' Falling back to MessageBox')
+                        $fallbackHost = if ($NotificationHosts -and $NotificationHosts.Count -gt 0) { $NotificationHosts[0] } else { 'powershell' }
+                        $fallbackCommand = @"
 Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.MessageBox]::Show('$escapedMsg', '$escapedTitle', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
 "@
-                    Start-Process powershell -ArgumentList @(
-                        '-NoProfile',
-                        '-WindowStyle', 'Hidden',
-                        '-Command',
-                        $notifyCommand
-                    ) | Out-Null
+                        Start-Process $fallbackHost -ArgumentList @(
+                            '-NoProfile',
+                            '-WindowStyle', 'Hidden',
+                            '-Command',
+                            $fallbackCommand
+                        ) | Out-Null
+                    }
                 } catch {}
                 Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
             }
             Start-Sleep -Seconds 2
         }
-    } -ArgumentList $dir, $soundsDir
+    } -ArgumentList $dir, $soundsDir, $notificationHosts
 }
 
 function Stop-NotifyWatcher {

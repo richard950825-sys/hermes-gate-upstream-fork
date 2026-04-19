@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-04-19 - Windows adaptive toast host selection and logging
+
+### Fixed
+
+- Added runtime notification-host discovery in `run.ps1` so Windows toast delivery now prefers `pwsh` when available, falls back to Windows PowerShell, and no longer assumes a single host for all users.
+- Split toast execution from MessageBox fallback into separate success/failure paths so BurntToast is attempted on each discovered host before any visible fallback dialog is shown.
+- Added watcher logging to `.notify/watcher.log` so toast-host failures are no longer silently swallowed and the fallback reason is inspectable on the user's machine.
+
+### Tests
+
+- Expanded `tests/test_run_ps1.py` to lock adaptive host selection order, detached host execution, failure logging, and sound-before-notify ordering.
+- Validation run: `python -m pytest -q tests/test_run_ps1.py` (`13 passed`).
+
 ## 2026-04-19 - Windows detached-process notification delivery
 
 ### Fixed

@@ -65,11 +65,30 @@ def test_readme_documents_windows_stop_command():
 def test_run_ps1_uses_detached_notification_process_for_burnttoast_and_fallback():
     """Watcher should delegate visible notifications to a separate PowerShell process instead of invoking BurntToast directly inside the job."""
     content = _run_ps1()
-    assert 'Start-Process powershell' in content
+    assert 'Start-Process $notificationHost' in content
+    assert "Get-NotificationHostCandidates" in content
     assert 'New-BurntToastNotification' in content
     assert '[System.Windows.Forms.MessageBox]::Show' in content
     assert 'Import-Module BurntToast' in content
     assert 'ShowBalloonTip' not in content
+
+
+def test_run_ps1_prefers_pwsh_before_windows_powershell_for_notifications():
+    """Adaptive notification launcher should prefer pwsh before falling back to powershell."""
+    content = _run_ps1()
+    host_candidates_idx = content.index('function Get-NotificationHostCandidates')
+    pwsh_idx = content.index("Get-Command pwsh")
+    powershell_idx = content.index("Get-Command powershell")
+    assert host_candidates_idx < pwsh_idx < powershell_idx
+
+
+def test_run_ps1_logs_notification_host_failures_before_messagebox_fallback():
+    """Fallback path should emit diagnostic logs instead of silently swallowing toast host failures."""
+    content = _run_ps1()
+    assert '$logPath = Join-Path $NotifyDir "watcher.log"' in content
+    assert 'Add-Content -Path $logPath' in content
+    assert 'Notification host failed:' in content
+    assert 'Falling back to MessageBox' in content
 
 
 def test_run_ps1_does_not_dispose_notifyicon_immediately_after_notification():
@@ -83,7 +102,7 @@ def test_run_ps1_plays_sound_before_spawning_notification_process():
     """Sound playback should happen before watcher launches the separate notification process."""
     content = _run_ps1()
     sound_idx = content.index('# Play custom sound')
-    notify_idx = content.index('Start-Process powershell')
+    notify_idx = content.index('Start-Process $notificationHost')
     assert sound_idx < notify_idx
 
 
