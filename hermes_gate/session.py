@@ -1,5 +1,6 @@
 """Remote tmux session management + local records"""
 
+import base64
 import json
 import re
 import shlex
@@ -264,6 +265,12 @@ class SessionManager:
         name = f"gate-{sid}"
         now = datetime.now().isoformat(timespec="seconds")
 
+        # Deploy notification plugin BEFORE starting Hermes so it loads on startup
+        try:
+            self.ensure_notify_plugin()
+        except Exception:
+            pass  # Best effort — don't block session creation
+
         result = self._ssh_cmd(
             self.tmux_command("new-session", "-d", "-s", name, "bash -l -c hermes")
         )
@@ -335,3 +342,115 @@ class SessionManager:
         cmd.extend(self._ssh_destination())
         cmd.append(f"tmux attach -d -t {name}")
         return cmd
+
+    # ─── Completion Signal Detection ────────────────────────────────
+
+    def check_completion_signals(self) -> list[dict]:
+        """Poll remote server for Hermes completion signal files.
+
+        Reads and deletes signal files written by the gate-notify plugin.
+        Returns a list of signal dicts with session_id, timestamp, etc.
+        """
+        # Use login shell for ls (needs tilde and glob expansion)
+        result = self._ssh_cmd(
+            self.login_shell_command(
+                "ls ~/.hermes/gate-signals/done-*.json 2>/dev/null"
+            ),
+            timeout=5,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+
+        signals = []
+        for f in result.stdout.strip().splitlines():
+            f = f.strip()
+            if not f:
+                continue
+            # Avoid login shell for cat — prevents MOTD/shell banner from
+            # polluting the JSON output and causing parse failures.
+            cat_result = self._ssh_cmd(
+                f"cat {shlex.quote(f)}",
+                timeout=5,
+            )
+            if cat_result.returncode == 0:
+                try:
+                    signals.append(json.loads(cat_result.stdout))
+                except (json.JSONDecodeError, ValueError):
+                    pass
+            self._ssh_cmd(
+                f"rm -f {shlex.quote(f)}",
+                timeout=5,
+            )
+        return signals
+
+    # ─── Plugin Inline Content ──────────────────────────────────────
+
+    _PLUGIN_YAML = """\
+name: gate-notify
+version: "0.1"
+description: Signal hermes-gate when agent completes a turn
+"""
+
+    _PLUGIN_INIT = """\
+import json
+import time
+from datetime import datetime
+from pathlib import Path
+
+SIGNAL_DIR = Path.home() / ".hermes" / "gate-signals"
+MAX_AGE_SECONDS = 600
+
+
+def on_complete(session_id, user_message, assistant_response, **kwargs):
+    SIGNAL_DIR.mkdir(parents=True, exist_ok=True)
+
+    now = time.time()
+    for f in SIGNAL_DIR.glob("done-*.json"):
+        try:
+            if now - f.stat().st_mtime > MAX_AGE_SECONDS:
+                f.unlink()
+        except OSError:
+            pass
+
+    signal = {
+        "session_id": session_id,
+        "timestamp": datetime.now().isoformat(),
+        "message_preview": (user_message or "")[:80],
+        "response_preview": (assistant_response or "")[:80],
+    }
+    fname = f"done-{datetime.now().strftime('%Y%m%d%H%M%S%f')}.json"
+    (SIGNAL_DIR / fname).write_text(json.dumps(signal))
+
+
+def register(ctx):
+    ctx.register_hook("post_llm_call", on_complete)
+"""
+
+    def ensure_notify_plugin(self) -> None:
+        """Auto-deploy gate-notify plugin to remote server if not present."""
+        result = self._ssh_cmd(
+            self.login_shell_command("test -f ~/.hermes/plugins/gate-notify/__init__.py"),
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return
+
+        yaml_b64 = base64.b64encode(self._PLUGIN_YAML.encode()).decode()
+        init_b64 = base64.b64encode(self._PLUGIN_INIT.encode()).decode()
+
+        self._ssh_cmd(
+            self.login_shell_command("mkdir -p ~/.hermes/plugins/gate-notify"),
+            timeout=5,
+        )
+        self._ssh_cmd(
+            self.login_shell_command(
+                f"echo {yaml_b64} | base64 -d > ~/.hermes/plugins/gate-notify/plugin.yaml"
+            ),
+            timeout=5,
+        )
+        self._ssh_cmd(
+            self.login_shell_command(
+                f"echo {init_b64} | base64 -d > ~/.hermes/plugins/gate-notify/__init__.py"
+            ),
+            timeout=5,
+        )

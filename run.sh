@@ -27,6 +27,41 @@ fi
 set -e
 
 CONTAINER_NAME="hermes-gate"
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+NOTIFY_DIR="$PROJECT_DIR/.notify"
+
+# ─── notification watcher (macOS/Linux) ────────────────────────────
+_notify_watcher() {
+    mkdir -p "$NOTIFY_DIR"
+    SOUNDS_DIR="$PROJECT_DIR/sounds"
+    while true; do
+        for f in "$NOTIFY_DIR"/notify-*.json; do
+            [ -f "$f" ] || continue
+            msg=$(python3 -c "import json,sys; d=json.load(open('$f')); print(d.get('message',''))" 2>/dev/null || echo "")
+            title=$(python3 -c "import json,sys; d=json.load(open('$f')); print(d.get('title','Hermes Gate'))" 2>/dev/null || echo "Hermes Gate")
+            sound=$(python3 -c "import json,sys; d=json.load(open('$f')); print(d.get('sound',''))" 2>/dev/null || echo "")
+            sound_file=""
+            [ -n "$sound" ] && [ -f "$SOUNDS_DIR/$sound" ] && sound_file="$SOUNDS_DIR/$sound"
+            if [ "$(uname)" = "Darwin" ]; then
+                osascript -e "display notification \"$msg\" with title \"$title\"" 2>/dev/null || true
+                [ -n "$sound_file" ] && afplay "$sound_file" 2>/dev/null &
+            elif command -v notify-send >/dev/null 2>&1; then
+                notify-send "$title" "$msg" 2>/dev/null || true
+                [ -n "$sound_file" ] && { command -v paplay >/dev/null 2>&1 && paplay "$sound_file" 2>/dev/null || aplay "$sound_file" 2>/dev/null; } &
+            fi
+            rm -f "$f"
+        done
+        sleep 2
+    done
+}
+
+_cleanup_watcher() {
+    if [ -n "${_WATCHER_PID:-}" ]; then
+        disown "$_WATCHER_PID" 2>/dev/null
+        kill "$_WATCHER_PID" 2>/dev/null
+    fi
+    _auto_stop
+}
 
 # ─── auto-stop if no other sessions ───────────────────────────────
 _auto_stop() {
@@ -60,8 +95,11 @@ if [ "$FORCE_REBUILD" = true ]; then
     docker compose down --rmi local 2>/dev/null || true
     docker compose up -d --build
     echo "Build complete, launching TUI..."
+    mkdir -p "$NOTIFY_DIR"
+    _notify_watcher &
+    _WATCHER_PID=$!
+    trap _cleanup_watcher EXIT
     docker exec -it "${CONTAINER_NAME}" python -m hermes_gate || true
-    _auto_stop
     exit 0
 fi
 
@@ -88,5 +126,8 @@ if [ "$RUNNING" != "true" ]; then
 fi
 
 # ─── launch TUI ───────────────────────────────────────────────────
+mkdir -p "$NOTIFY_DIR"
+_notify_watcher &
+_WATCHER_PID=$!
+trap _cleanup_watcher EXIT
 docker exec -it "${CONTAINER_NAME}" python -m hermes_gate || true
-_auto_stop

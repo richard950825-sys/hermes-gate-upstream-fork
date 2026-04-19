@@ -20,6 +20,7 @@ $ErrorActionPreference = "Stop"
 $ContainerName = "hermes-gate"
 $ProjectDir = $PSScriptRoot
 $ComposeArgs = @("-f", "docker-compose.windows.yml")
+$NotifyDir = Join-Path $ProjectDir ".notify"
 
 function Assert-Command([string]$Name, [string]$Message) {
     if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
@@ -75,11 +76,69 @@ function Stop-IfIdle([string]$Name) {
     }
 }
 
+# ---------------------------------------------------------------------------
+# Notification watcher — polls notify dir for signal files from the container
+# ---------------------------------------------------------------------------
+$script:WatcherJob = $null
+
+function Start-NotifyWatcher {
+    New-Item -ItemType Directory -Force -Path $NotifyDir | Out-Null
+    $dir = $NotifyDir
+    $soundsDir = Join-Path $ProjectDir "sounds"
+    $script:WatcherJob = Start-Job -ScriptBlock {
+        param($NotifyDir, $SoundsDir)
+        Add-Type -AssemblyName System.Windows.Forms
+        while ($true) {
+            Get-ChildItem -Path $NotifyDir -Filter "notify-*.json" -ErrorAction SilentlyContinue | ForEach-Object {
+                try {
+                    $data = Get-Content $_.FullName -Raw | ConvertFrom-Json
+                    $msg = $data.message
+                    $title = $data.title
+                    $soundName = $data.sound
+                    # Try BurntToast module first, fall back to balloon tip
+                    if (Get-Module -ListAvailable -Name BurntToast -ErrorAction SilentlyContinue) {
+                        Import-Module BurntToast -ErrorAction SilentlyContinue
+                        New-BurntToastNotification -Text $title, $msg 2>$null | Out-Null
+                    } else {
+                        $notify = New-Object System.Windows.Forms.NotifyIcon
+                        $notify.Icon = [System.Drawing.SystemIcons]::Information
+                        $notify.Visible = $true
+                        $notify.ShowBalloonTip(5000, $title, $msg, [System.Windows.Forms.ToolTipIcon]::Info)
+                        Start-Sleep -Milliseconds 100
+                        $notify.Dispose()
+                    }
+                    # Play custom sound
+                    if ($soundName) {
+                        $soundPath = Join-Path $SoundsDir $soundName
+                        if (Test-Path $soundPath) {
+                            $player = New-Object System.Media.SoundPlayer $soundPath
+                            $player.Play()
+                        }
+                    }
+                } catch {}
+                Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+            }
+            Start-Sleep -Seconds 2
+        }
+    } -ArgumentList $dir, $soundsDir
+}
+
+function Stop-NotifyWatcher {
+    if ($script:WatcherJob) {
+        Stop-Job $script:WatcherJob -ErrorAction SilentlyContinue
+        Remove-Job $script:WatcherJob -Force -ErrorAction SilentlyContinue
+        $script:WatcherJob = $null
+    }
+}
+
 function Launch-Tui([string]$Name) {
+    Write-Host "Launching TUI..."
+    Start-NotifyWatcher
     try {
         Invoke-Tui $Name
     }
     finally {
+        Stop-NotifyWatcher
         Stop-IfIdle $Name
     }
 }

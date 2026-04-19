@@ -1,0 +1,3 @@
+name: gate-notify
+version: "0.1"
+description: Signal hermes-gate when agent completes a turn

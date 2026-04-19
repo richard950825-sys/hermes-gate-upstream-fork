@@ -1,8 +1,14 @@
 """Hermes Gate Main TUI Application — Built with Textual"""
 
 import asyncio
+import json
 import shlex
 import subprocess
+import sys
+import threading
+import time
+from datetime import datetime
+from pathlib import Path
 
 from rich.text import Text
 from textual.app import App, ComposeResult
@@ -484,6 +490,10 @@ class HermesGateApp(App):
         ssh_alias = ssh_alias or find_ssh_alias(user, host, port)
         self.session_mgr = SessionManager(user, host, port, ssh_alias=ssh_alias)
         self.net_monitor = NetworkMonitor(host, port)
+
+        # Deploy notification plugin in background (for existing sessions)
+        self._ensure_plugin()
+
         server_name = display_name({"user": user, "host": host, "port": port})
         self.mount(
             Center(
@@ -520,6 +530,13 @@ class HermesGateApp(App):
         self._stop_auto_refresh()
         self._auto_refresh_timer = self.set_interval(10, self._auto_refresh_tick)
 
+    @work(exit_on_error=False)
+    async def _ensure_plugin(self) -> None:
+        if not self.session_mgr:
+            return
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self.session_mgr.ensure_notify_plugin)
+
     def _stop_auto_refresh(self) -> None:
         if self._auto_refresh_timer is not None:
             self._auto_refresh_timer.stop()
@@ -528,6 +545,46 @@ class HermesGateApp(App):
     def _auto_refresh_tick(self) -> None:
         if self._phase == "session":
             self._refresh_sessions()
+            self._check_completion()
+
+    def _notify(self, session_name: str, message: str) -> None:
+        """Dual-layer notification: OSC 9 (instant terminal) + file signal (host system)."""
+        text = f"Hermes {session_name}: {message}"
+
+        # Layer 1: OSC 9 terminal notification (iTerm2, Windows Terminal, WezTerm, etc.)
+        try:
+            sys.stdout.write(f"\033]9;{text}\007")
+            sys.stdout.flush()
+        except Exception:
+            pass
+
+        # Layer 2: Write file signal to mounted volume for host-side watcher
+        notify_dir = Path("/hermes-notify")
+        if notify_dir.is_dir():
+            ts = datetime.now().strftime("%Y%m%d%H%M%S%f")
+            (notify_dir / f"notify-{ts}.json").write_text(
+                json.dumps({
+                    "title": "Hermes Gate",
+                    "message": text,
+                    "sound": "complete.wav",
+                })
+            )
+
+    @work(exit_on_error=False)
+    async def _check_completion(self) -> None:
+        if not self.session_mgr:
+            return
+        loop = asyncio.get_event_loop()
+        try:
+            signals = await loop.run_in_executor(
+                None, self.session_mgr.check_completion_signals
+            )
+        except Exception:
+            return
+        for sig in signals:
+            name = f"gate-{sig.get('session_id', '?')}"
+            preview = sig.get("message_preview", "task completed")
+            self._notify(name, preview)
 
     @work(exit_on_error=False)
     async def _refresh_sessions(self) -> None:
@@ -661,6 +718,7 @@ class HermesGateApp(App):
         The user gets a real terminal with the remote tmux session.
         - Ctrl+B detaches and returns to the session list.
         - A green status bar at the bottom shows connection status + hint.
+        - A background thread polls for completion signals while attached.
         """
         mgr = self.session_mgr
         if not mgr:
@@ -675,6 +733,9 @@ class HermesGateApp(App):
         # Configure tmux: Ctrl+B → detach, green status bar at bottom
         self._configure_tmux_for_attach(mgr, name)
 
+        # Start background polling thread — notifies host while TUI is suspended
+        self._start_bg_poll(mgr)
+
         # Suspend Textual and run SSH attach — user gets real terminal
         # The session list DOM stays mounted; after suspend returns we just
         # refresh it in place, avoiding any DuplicateIds issues entirely.
@@ -684,6 +745,9 @@ class HermesGateApp(App):
                 subprocess.call(cmd)
         except Exception:
             subprocess.call(cmd)
+
+        # Stop background polling
+        self._stop_bg_poll()
 
         # Restore tmux session options to defaults
         self._restore_tmux_after_detach(mgr, name)
@@ -698,10 +762,50 @@ class HermesGateApp(App):
 
         # Refresh the session list (DOM was never touched, just re-query)
         self._refresh_sessions()
+        self._check_completion()
         try:
             self.query_one("#session-list", ListView).focus()
         except Exception:
             pass
+
+    # ─── Background Completion Polling ────────────────────────────────
+
+    def _start_bg_poll(self, mgr: SessionManager) -> None:
+        """Start a background thread that polls for completion signals."""
+        self._bg_poll_stop = threading.Event()
+
+        def _poll():
+            notify_dir = Path("/hermes-notify")
+            while not self._bg_poll_stop.is_set():
+                try:
+                    signals = mgr.check_completion_signals()
+                    for sig in signals:
+                        name = f"gate-{sig.get('session_id', '?')}"
+                        preview = sig.get("message_preview", "task completed")
+                        text = f"Hermes {name}: {preview}"
+                        if notify_dir.is_dir():
+                            ts = datetime.now().strftime("%Y%m%d%H%M%S%f")
+                            (notify_dir / f"notify-{ts}.json").write_text(
+                                json.dumps({
+                                    "title": "Hermes Gate",
+                                    "message": text,
+                                    "sound": "complete.wav",
+                                })
+                            )
+                except Exception:
+                    pass
+                self._bg_poll_stop.wait(3)
+
+        self._bg_poll_thread = threading.Thread(target=_poll, daemon=True)
+        self._bg_poll_thread.start()
+
+    def _stop_bg_poll(self) -> None:
+        """Stop the background polling thread."""
+        if hasattr(self, "_bg_poll_stop") and self._bg_poll_stop:
+            self._bg_poll_stop.set()
+        if hasattr(self, "_bg_poll_thread") and self._bg_poll_thread:
+            self._bg_poll_thread.join(timeout=15)
+            self._bg_poll_thread = None
 
     # ─── tmux Configuration ─────────────────────────────────────────
 

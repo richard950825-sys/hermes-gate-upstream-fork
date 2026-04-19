@@ -6,6 +6,8 @@ services:
     volumes:
       - ~/.ssh:/host/.ssh:ro
       - ./hermes_gate:/app/hermes_gate
+      - ./.notify:/hermes-notify
+      - ./sounds:/app/sounds:ro
     stdin_open: true
     tty: true
     restart: unless-stopped
