@@ -41,7 +41,18 @@
 ```bash
 git clone https://github.com/LehaoLin/hermes-gate.git
 cd hermes-gate
+```
+
+**macOS / Linux：**
+
+```bash
 ./run.sh
+```
+
+**Windows (PowerShell)：**
+
+```powershell
+.\run.ps1
 ```
 
 首次运行会自动构建 Docker 镜像并启动 TUI。请确保在启动前 Docker 已运行且 SSH 密钥已配置。
@@ -49,6 +60,8 @@ cd hermes-gate
 ## 使用方法
 
 ### 启动
+
+**macOS / Linux：**
 
 ```bash
 ./run.sh              # 启动（如已构建则跳过构建）
@@ -59,6 +72,14 @@ cd hermes-gate
 ```
 
 多个终端可以同时运行 `./run.sh`——每个终端获得独立的 TUI 会话。当最后一个会话退出时，容器会自动停止。
+
+**Windows (PowerShell)：**
+
+```powershell
+.\run.ps1              # 启动（如已构建则跳过构建）
+.\run.ps1 rebuild      # 强制重新构建后启动
+.\run.ps1 update       # git pull + 重新构建 + 启动
+```
 
 ### TUI 控制键
 
@@ -114,6 +135,7 @@ hermes-gate/
 ├── docker-compose.yml
 ├── entrypoint.sh
 ├── run.sh
+├── run.ps1
 ├── pyproject.toml
 └── hermes_gate/
     ├── __main__.py    # 入口

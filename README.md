@@ -43,7 +43,18 @@ Running Hermes Agent on a remote server usually means juggling SSH terminals, wo
 ```bash
 git clone https://github.com/LehaoLin/hermes-gate.git
 cd hermes-gate
+```
+
+**macOS / Linux:**
+
+```bash
 ./run.sh
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.\run.ps1
 ```
 
 The first run will automatically build the Docker image and launch the TUI. Make sure you have Docker running and your SSH key set up before starting.
@@ -51,6 +62,8 @@ The first run will automatically build the Docker image and launch the TUI. Make
 ## Usage
 
 ### Starting
+
+**macOS / Linux:**
 
 ```bash
 ./run.sh              # Start (skips build if already built)
@@ -61,6 +74,14 @@ The first run will automatically build the Docker image and launch the TUI. Make
 ```
 
 Multiple terminals can run `./run.sh` simultaneously — each gets an independent TUI session. The container auto-stops when the last session exits.
+
+**Windows (PowerShell):**
+
+```powershell
+.\run.ps1              # Start (skips build if already built)
+.\run.ps1 rebuild      # Force rebuild then start
+.\run.ps1 update       # git pull + rebuild + start
+```
 
 ### TUI Controls
 
@@ -116,6 +137,7 @@ hermes-gate/
 ├── docker-compose.yml
 ├── entrypoint.sh
 ├── run.sh
+├── run.ps1
 ├── pyproject.toml
 └── hermes_gate/
     ├── __main__.py    # Entry point
