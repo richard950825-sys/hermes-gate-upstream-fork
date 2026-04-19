@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-04-19 - Windows notification watcher fallback fix
+
+### Fixed
+
+- Reworked `run.ps1` notification fallback to stop using a transient `NotifyIcon` balloon tip that could disappear before rendering.
+- Windows watcher now prefers BurntToast, but if BurntToast is unavailable or fails it falls back to a visible `System.Windows.Forms.MessageBox` instead of a short-lived tray notification.
+- Removed the immediate `Start-Sleep -Milliseconds 100` plus `Dispose()` pattern that matched the local "sound but no visible notification" failure mode.
+
+### Tests
+
+- Expanded `tests/test_run_ps1.py` to require a visible fallback notification path and to forbid the old short-lived `NotifyIcon` disposal pattern.
+- Validation run: `pytest -q tests/test_run_ps1.py` (`9 passed`).
+
 ## 2026-04-19 - Windows launcher full run.sh parity
 
 ### Fixed

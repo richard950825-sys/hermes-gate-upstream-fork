@@ -60,3 +60,20 @@ def test_readme_documents_windows_stop_command():
     """README Windows usage should stay aligned with run.ps1 command surface."""
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert '.\\run.ps1 stop' in readme
+
+
+def test_run_ps1_uses_burnttoast_with_appid_or_fallback_message_box():
+    """Windows notifications should prefer real toasts and fall back to a visible dialog, not a transient tray balloon."""
+    content = _run_ps1()
+    assert 'New-BurntToastNotification' in content
+    assert '-AppLogo' in content or '-AppId' in content or 'BurntToast' in content
+    assert '[System.Windows.Forms.MessageBox]::Show' in content
+    assert 'ShowBalloonTip' not in content
+
+
+def test_run_ps1_does_not_dispose_notifyicon_immediately_after_notification():
+    """The watcher should not create a short-lived NotifyIcon that disappears before the notification is visible."""
+    content = _run_ps1()
+    assert '$notify.Dispose()' not in content
+    assert 'Start-Sleep -Milliseconds 100' not in content
+

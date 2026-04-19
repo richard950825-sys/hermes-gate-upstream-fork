@@ -95,17 +95,24 @@ function Start-NotifyWatcher {
                     $msg = $data.message
                     $title = $data.title
                     $soundName = $data.sound
-                    # Try BurntToast module first, fall back to balloon tip
+                    # Prefer BurntToast for native notifications. If unavailable or it fails,
+                    # fall back to a blocking message box instead of a transient tray balloon.
+                    $shown = $false
                     if (Get-Module -ListAvailable -Name BurntToast -ErrorAction SilentlyContinue) {
-                        Import-Module BurntToast -ErrorAction SilentlyContinue
-                        New-BurntToastNotification -Text $title, $msg 2>$null | Out-Null
-                    } else {
-                        $notify = New-Object System.Windows.Forms.NotifyIcon
-                        $notify.Icon = [System.Drawing.SystemIcons]::Information
-                        $notify.Visible = $true
-                        $notify.ShowBalloonTip(5000, $title, $msg, [System.Windows.Forms.ToolTipIcon]::Info)
-                        Start-Sleep -Milliseconds 100
-                        $notify.Dispose()
+                        try {
+                            Import-Module BurntToast -ErrorAction Stop
+                            New-BurntToastNotification -Text $title, $msg 2>$null | Out-Null
+                            $shown = $true
+                        }
+                        catch {}
+                    }
+                    if (-not $shown) {
+                        [System.Windows.Forms.MessageBox]::Show(
+                            $msg,
+                            $title,
+                            [System.Windows.Forms.MessageBoxButtons]::OK,
+                            [System.Windows.Forms.MessageBoxIcon]::Information
+                        ) | Out-Null
                     }
                     # Play custom sound
                     if ($soundName) {
