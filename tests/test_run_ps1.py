@@ -62,12 +62,13 @@ def test_readme_documents_windows_stop_command():
     assert '.\\run.ps1 stop' in readme
 
 
-def test_run_ps1_uses_burnttoast_with_nonblocking_messagebox_fallback():
-    """Windows notifications should prefer BurntToast and fall back via a separate process, not an in-job blocking UI call."""
+def test_run_ps1_uses_detached_notification_process_for_burnttoast_and_fallback():
+    """Watcher should delegate visible notifications to a separate PowerShell process instead of invoking BurntToast directly inside the job."""
     content = _run_ps1()
-    assert 'New-BurntToastNotification' in content
     assert 'Start-Process powershell' in content
+    assert 'New-BurntToastNotification' in content
     assert '[System.Windows.Forms.MessageBox]::Show' in content
+    assert 'Import-Module BurntToast' in content
     assert 'ShowBalloonTip' not in content
 
 
@@ -78,10 +79,17 @@ def test_run_ps1_does_not_dispose_notifyicon_immediately_after_notification():
     assert 'Start-Sleep -Milliseconds 100' not in content
 
 
-def test_run_ps1_plays_sound_before_nonblocking_notification_fallback():
-    """Sound playback should happen before any fallback notification UI so audio is not blocked by the UI path."""
+def test_run_ps1_plays_sound_before_spawning_notification_process():
+    """Sound playback should happen before watcher launches the separate notification process."""
     content = _run_ps1()
     sound_idx = content.index('# Play custom sound')
-    fallback_idx = content.index('Start-Process powershell')
-    assert sound_idx < fallback_idx
+    notify_idx = content.index('Start-Process powershell')
+    assert sound_idx < notify_idx
+
+
+def test_run_ps1_notification_job_no_longer_calls_burnttoast_inline():
+    """The old direct job-scoped BurntToast call shape should be gone once watcher delegates to a detached process."""
+    content = _run_ps1()
+    assert 'New-BurntToastNotification -Text $title, $msg' not in content
+    assert '$shown = $false' not in content
 

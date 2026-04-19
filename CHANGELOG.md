@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-04-19 - Windows detached-process notification delivery
+
+### Fixed
+
+- Moved visible Windows notification delivery out of the background watcher job and into a detached PowerShell process so BurntToast no longer depends on the broken job-session context.
+- Kept sound playback in the watcher and moved it ahead of visible notification launch so audio is preserved even if the visible notification path falls back.
+- The detached notification process now tries BurntToast first and falls back to `System.Windows.Forms.MessageBox` only if toast delivery fails.
+
+### Tests
+
+- Expanded `tests/test_run_ps1.py` to lock detached-process notification execution, sound-before-notify ordering, and removal of the old direct job-scoped BurntToast pattern.
+- Validation run: `pytest -q tests/test_run_ps1.py`.
+
 ## 2026-04-19 - Windows notification watcher fallback fix
 
 ### Fixed

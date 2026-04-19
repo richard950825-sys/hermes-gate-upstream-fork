@@ -87,7 +87,6 @@ function Start-NotifyWatcher {
     $soundsDir = Join-Path $ProjectDir "sounds"
     $script:WatcherJob = Start-Job -ScriptBlock {
         param($NotifyDir, $SoundsDir)
-        Add-Type -AssemblyName System.Windows.Forms
         while ($true) {
             Get-ChildItem -Path $NotifyDir -Filter "notify-*.json" -ErrorAction SilentlyContinue | ForEach-Object {
                 try {
@@ -103,32 +102,28 @@ function Start-NotifyWatcher {
                             $player.Play()
                         }
                     }
-                    # Prefer BurntToast for native notifications. If unavailable or it fails,
-                    # spawn a separate PowerShell process for a visible fallback dialog so the
-                    # watcher job itself never blocks on UI.
-                    $shown = $false
-                    if (Get-Module -ListAvailable -Name BurntToast -ErrorAction SilentlyContinue) {
-                        try {
-                            Import-Module BurntToast -ErrorAction Stop
-                            New-BurntToastNotification -Text $title, $msg 2>$null | Out-Null
-                            $shown = $true
-                        }
-                        catch {}
-                    }
-                    if (-not $shown) {
-                        $escapedTitle = $title.Replace("'", "''")
-                        $escapedMsg = $msg.Replace("'", "''")
-                        $fallbackCommand = @"
+                    # Visible notifications run in a separate PowerShell process so toast/UI
+                    # APIs execute in a normal user-session context instead of the background job.
+                    $escapedTitle = $title.Replace("'", "''")
+                    $escapedMsg = $msg.Replace("'", "''")
+                    $notifyCommand = @"
+if (Get-Module -ListAvailable -Name BurntToast -ErrorAction SilentlyContinue) {
+    try {
+        Import-Module BurntToast -ErrorAction Stop
+        New-BurntToastNotification -Text '$escapedTitle', '$escapedMsg' 2>`$null | Out-Null
+        exit 0
+    }
+    catch {}
+}
 Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.MessageBox]::Show('$escapedMsg', '$escapedTitle', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
 "@
-                        Start-Process powershell -ArgumentList @(
-                            '-NoProfile',
-                            '-WindowStyle', 'Hidden',
-                            '-Command',
-                            $fallbackCommand
-                        ) | Out-Null
-                    }
+                    Start-Process powershell -ArgumentList @(
+                        '-NoProfile',
+                        '-WindowStyle', 'Hidden',
+                        '-Command',
+                        $notifyCommand
+                    ) | Out-Null
                 } catch {}
                 Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
             }
