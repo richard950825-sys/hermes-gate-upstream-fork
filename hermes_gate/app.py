@@ -547,9 +547,25 @@ class HermesGateApp(App):
             self._refresh_sessions()
             self._check_completion()
 
+    def _emit_host_notification(
+        self, title: str, message: str, sound: str = "complete.wav"
+    ) -> None:
+        notify_dir = Path("/hermes-notify")
+        if not notify_dir.is_dir():
+            return
+        ts = datetime.now().strftime("%Y%m%d%H%M%S%f")
+        (notify_dir / f"notify-{ts}.json").write_text(
+            json.dumps({
+                "title": title,
+                "message": message,
+                "sound": sound,
+            })
+        )
+
     def _notify(self, session_name: str, message: str) -> None:
         """Dual-layer notification: OSC 9 (instant terminal) + file signal (host system)."""
-        text = f"Hermes {session_name}: {message}"
+        title = f"Hermes Gate · {session_name}"
+        text = f"{session_name}: {message}"
 
         # Layer 1: OSC 9 terminal notification (iTerm2, Windows Terminal, WezTerm, etc.)
         try:
@@ -559,16 +575,7 @@ class HermesGateApp(App):
             pass
 
         # Layer 2: Write file signal to mounted volume for host-side watcher
-        notify_dir = Path("/hermes-notify")
-        if notify_dir.is_dir():
-            ts = datetime.now().strftime("%Y%m%d%H%M%S%f")
-            (notify_dir / f"notify-{ts}.json").write_text(
-                json.dumps({
-                    "title": "Hermes Gate",
-                    "message": text,
-                    "sound": "complete.wav",
-                })
-            )
+        self._emit_host_notification(title, message)
 
     @work(exit_on_error=False)
     async def _check_completion(self) -> None:
@@ -583,7 +590,7 @@ class HermesGateApp(App):
             return
         for sig in signals:
             name = f"gate-{sig.get('session_id', '?')}"
-            preview = sig.get("message_preview", "task completed")
+            preview = sig.get("response_preview") or sig.get("message_preview") or "task completed"
             self._notify(name, preview)
 
     @work(exit_on_error=False)
@@ -781,17 +788,11 @@ class HermesGateApp(App):
                     signals = mgr.check_completion_signals()
                     for sig in signals:
                         name = f"gate-{sig.get('session_id', '?')}"
-                        preview = sig.get("message_preview", "task completed")
-                        text = f"Hermes {name}: {preview}"
-                        if notify_dir.is_dir():
-                            ts = datetime.now().strftime("%Y%m%d%H%M%S%f")
-                            (notify_dir / f"notify-{ts}.json").write_text(
-                                json.dumps({
-                                    "title": "Hermes Gate",
-                                    "message": text,
-                                    "sound": "complete.wav",
-                                })
-                            )
+                        preview = sig.get("response_preview") or sig.get("message_preview") or "task completed"
+                        self._emit_host_notification(
+                            f"Hermes Gate · {name}",
+                            preview,
+                        )
                 except Exception:
                     pass
                 self._bg_poll_stop.wait(3)

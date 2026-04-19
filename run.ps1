@@ -97,26 +97,16 @@ function Get-NotificationHostCandidates {
 function Start-NotifyWatcher {
     New-Item -ItemType Directory -Force -Path $NotifyDir | Out-Null
     $dir = $NotifyDir
-    $soundsDir = Join-Path $ProjectDir "sounds"
     $notificationHosts = Get-NotificationHostCandidates
     $script:WatcherJob = Start-Job -ScriptBlock {
-        param($NotifyDir, $SoundsDir, $NotificationHosts)
+        param($NotifyDir, $NotificationHosts)
         $logPath = Join-Path $NotifyDir "watcher.log"
         while ($true) {
             Get-ChildItem -Path $NotifyDir -Filter "notify-*.json" -ErrorAction SilentlyContinue | ForEach-Object {
                 try {
                     $data = Get-Content $_.FullName -Raw | ConvertFrom-Json
-                    $msg = $data.message
-                    $title = $data.title
-                    $soundName = $data.sound
-                    # Play custom sound first so notification UI cannot block audio.
-                    if ($soundName) {
-                        $soundPath = Join-Path $SoundsDir $soundName
-                        if (Test-Path $soundPath) {
-                            $player = New-Object System.Media.SoundPlayer $soundPath
-                            $player.Play()
-                        }
-                    }
+                    $title = if ($data.title) { [string]$data.title } else { "Hermes Gate" }
+                    $msg = if ($data.message) { [string]$data.message } else { "Notification received." }
 
                     # Visible notifications run in a separate PowerShell process so toast/UI
                     # APIs execute in a normal user-session context instead of the background job.
@@ -177,12 +167,14 @@ Add-Type -AssemblyName System.Windows.Forms
                             $fallbackCommand
                         ) | Out-Null
                     }
-                } catch {}
+                } catch {
+                    Add-Content -Path $logPath -Value ((Get-Date -Format s) + ' Watcher processing failed: ' + $_)
+                }
                 Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
             }
             Start-Sleep -Seconds 2
         }
-    } -ArgumentList $dir, $soundsDir, $notificationHosts
+    } -ArgumentList $dir, $notificationHosts
 }
 
 function Stop-NotifyWatcher {

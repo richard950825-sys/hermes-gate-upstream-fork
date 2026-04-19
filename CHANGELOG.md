@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-04-19 - Windows notifications use native sound only and log watcher failures
+
+### Fixed
+
+- Removed Windows `System.Media.SoundPlayer` wav playback from `run.ps1` so BurntToast and MessageBox now rely solely on native Windows notification sound behavior.
+- Added safe default values for notification payloads before escaping: `Hermes Gate` for missing titles and `Notification received.` for missing messages.
+- Replaced the outer watcher `catch {}` with watcher.log diagnostics so top-level JSON parsing / notification processing failures are recorded instead of silently swallowed.
+
+### Tests
+
+- Expanded `tests/test_run_ps1.py` to lock default title/message handling, absence of Windows wav playback, and watcher failure logging.
+- Validation run: `python -m pytest -q tests/test_run_ps1.py tests/test_notification_content.py` (`19 passed`).
+
+## 2026-04-19 - Notification content switched to session name plus response preview
+
+### Fixed
+
+- Changed `hermes_gate/app.py` host notifications to use the session name in the notification title and the agent `response_preview` as the notification body, instead of showing the original user prompt text.
+- Added a shared host-notification emitter so foreground completion polling and background polling both format Windows/macOS/Linux notification payloads consistently.
+- Kept a safe fallback order for completion text: `response_preview` first, then legacy `message_preview`, then `task completed` if neither preview is present.
+
+### Tests
+
+- Added `tests/test_notification_content.py` to lock notification title/body formatting and the `response_preview` preference logic.
+- Validation run: `python -m pytest -q tests/test_notification_content.py tests/test_session_hint_text.py tests/test_run_ps1.py` (`17 passed`).
+
 ## 2026-04-19 - Windows adaptive toast host selection and logging
 
 ### Fixed

@@ -62,6 +62,28 @@ def test_readme_documents_windows_stop_command():
     assert '.\\run.ps1 stop' in readme
 
 
+def test_run_ps1_defaults_notification_title_and_message_before_replace_calls():
+    """Watcher should supply safe default title/message values before escaping for detached notification hosts."""
+    content = _run_ps1()
+    assert '$title = if ($data.title) { [string]$data.title } else { "Hermes Gate" }' in content
+    assert '$msg = if ($data.message) { [string]$data.message } else { "Notification received." }' in content
+
+
+def test_run_ps1_windows_notifications_do_not_play_custom_wav_audio():
+    """Windows toast and MessageBox paths should rely on native notification sound, not SoundPlayer wav playback."""
+    content = _run_ps1()
+    assert 'System.Media.SoundPlayer' not in content
+    assert '# Play custom sound' not in content
+
+
+def test_run_ps1_logs_outer_watcher_exceptions_instead_of_swallowing_them():
+    """Top-level watcher exceptions should be recorded to watcher.log rather than silently swallowed."""
+    content = _run_ps1()
+    assert 'Watcher processing failed:' in content
+    assert '} catch {' in content
+    assert '} catch {}' not in content
+
+
 def test_run_ps1_uses_detached_notification_process_for_burnttoast_and_fallback():
     """Watcher should delegate visible notifications to a separate PowerShell process instead of invoking BurntToast directly inside the job."""
     content = _run_ps1()
@@ -98,12 +120,11 @@ def test_run_ps1_does_not_dispose_notifyicon_immediately_after_notification():
     assert 'Start-Sleep -Milliseconds 100' not in content
 
 
-def test_run_ps1_plays_sound_before_spawning_notification_process():
-    """Sound playback should happen before watcher launches the separate notification process."""
+def test_run_ps1_launches_notification_process_without_sound_order_dependency():
+    """Windows watcher no longer plays custom wav audio before launching native notifications."""
     content = _run_ps1()
-    sound_idx = content.index('# Play custom sound')
-    notify_idx = content.index('Start-Process $notificationHost')
-    assert sound_idx < notify_idx
+    assert 'Start-Process $notificationHost' in content
+    assert '# Play custom sound' not in content
 
 
 def test_run_ps1_notification_job_no_longer_calls_burnttoast_inline():
