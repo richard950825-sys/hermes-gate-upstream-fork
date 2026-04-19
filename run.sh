@@ -57,7 +57,7 @@ fi
 
 if [ "$FORCE_REBUILD" = true ]; then
     echo "Force rebuilding..."
-    docker compose down 2>/dev/null || true
+    docker compose down --rmi local 2>/dev/null || true
     docker compose up -d --build
     echo "Build complete, launching TUI..."
     docker exec -it "${CONTAINER_NAME}" python -m hermes_gate
