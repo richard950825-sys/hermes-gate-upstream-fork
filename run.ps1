@@ -95,8 +95,17 @@ function Start-NotifyWatcher {
                     $msg = $data.message
                     $title = $data.title
                     $soundName = $data.sound
+                    # Play custom sound first so notification UI cannot block audio.
+                    if ($soundName) {
+                        $soundPath = Join-Path $SoundsDir $soundName
+                        if (Test-Path $soundPath) {
+                            $player = New-Object System.Media.SoundPlayer $soundPath
+                            $player.Play()
+                        }
+                    }
                     # Prefer BurntToast for native notifications. If unavailable or it fails,
-                    # fall back to a blocking message box instead of a transient tray balloon.
+                    # spawn a separate PowerShell process for a visible fallback dialog so the
+                    # watcher job itself never blocks on UI.
                     $shown = $false
                     if (Get-Module -ListAvailable -Name BurntToast -ErrorAction SilentlyContinue) {
                         try {
@@ -107,20 +116,18 @@ function Start-NotifyWatcher {
                         catch {}
                     }
                     if (-not $shown) {
-                        [System.Windows.Forms.MessageBox]::Show(
-                            $msg,
-                            $title,
-                            [System.Windows.Forms.MessageBoxButtons]::OK,
-                            [System.Windows.Forms.MessageBoxIcon]::Information
+                        $escapedTitle = $title.Replace("'", "''")
+                        $escapedMsg = $msg.Replace("'", "''")
+                        $fallbackCommand = @"
+Add-Type -AssemblyName System.Windows.Forms
+[System.Windows.Forms.MessageBox]::Show('$escapedMsg', '$escapedTitle', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+"@
+                        Start-Process powershell -ArgumentList @(
+                            '-NoProfile',
+                            '-WindowStyle', 'Hidden',
+                            '-Command',
+                            $fallbackCommand
                         ) | Out-Null
-                    }
-                    # Play custom sound
-                    if ($soundName) {
-                        $soundPath = Join-Path $SoundsDir $soundName
-                        if (Test-Path $soundPath) {
-                            $player = New-Object System.Media.SoundPlayer $soundPath
-                            $player.Play()
-                        }
                     }
                 } catch {}
                 Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue

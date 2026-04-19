@@ -62,11 +62,11 @@ def test_readme_documents_windows_stop_command():
     assert '.\\run.ps1 stop' in readme
 
 
-def test_run_ps1_uses_burnttoast_with_appid_or_fallback_message_box():
-    """Windows notifications should prefer real toasts and fall back to a visible dialog, not a transient tray balloon."""
+def test_run_ps1_uses_burnttoast_with_nonblocking_messagebox_fallback():
+    """Windows notifications should prefer BurntToast and fall back via a separate process, not an in-job blocking UI call."""
     content = _run_ps1()
     assert 'New-BurntToastNotification' in content
-    assert '-AppLogo' in content or '-AppId' in content or 'BurntToast' in content
+    assert 'Start-Process powershell' in content
     assert '[System.Windows.Forms.MessageBox]::Show' in content
     assert 'ShowBalloonTip' not in content
 
@@ -76,4 +76,12 @@ def test_run_ps1_does_not_dispose_notifyicon_immediately_after_notification():
     content = _run_ps1()
     assert '$notify.Dispose()' not in content
     assert 'Start-Sleep -Milliseconds 100' not in content
+
+
+def test_run_ps1_plays_sound_before_nonblocking_notification_fallback():
+    """Sound playback should happen before any fallback notification UI so audio is not blocked by the UI path."""
+    content = _run_ps1()
+    sound_idx = content.index('# Play custom sound')
+    fallback_idx = content.index('Start-Process powershell')
+    assert sound_idx < fallback_idx
 
