@@ -54,8 +54,11 @@ cd hermes-gate
 ./run.sh              # 启动（如已构建则跳过构建）
 ./run.sh rebuild      # 强制重新构建后启动
 ./run.sh update       # git pull + 重新构建 + 启动
+./run.sh stop         # 停止并移除容器
 ./run.sh -h           # 显示帮助
 ```
+
+多个终端可以同时运行 `./run.sh`——每个终端获得独立的 TUI 会话。当最后一个会话退出时，容器会自动停止。
 
 ### TUI 控制键
 
