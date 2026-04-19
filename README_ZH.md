@@ -27,6 +27,37 @@
 - 自动主机名解析（通过 `/etc/hosts`）
 - SSH 配置别名支持（使用你的 `~/.ssh/config` 中的主机别名）
 - 远程控制键：`Ctrl+C` 中断、`Ctrl+E` 转义（无需离开 TUI）
+- **桌面通知与提示音** — Agent 任务完成时自动弹出系统通知并播放提示音
+
+## 桌面通知与提示音
+
+Hermes Gate 会在远程 Hermes Agent 完成任务时自动弹出**系统通知**并播放**提示音**。这对于高强度的 TUI 工作流来说是极大的效率提升——你不再需要一直盯着屏幕等待任务完成。
+
+### 工作原理
+
+`gate-notify` 插件（自动部署到远程服务器）会在 Agent 每次完成对话时写入一个信号文件。TUI 轮询这些信号，通过挂载卷转发到宿主机。宿主机上的后台监听进程随即：
+
+1. **弹出桌面通知** — 显示会话名称和任务预览的原生系统弹窗
+2. **播放提示音** — 默认使用 `sounds/complete.wav`
+
+完全**跨平台**支持：
+
+| 平台 | 通知方式 | 提示音 |
+|------|---------|--------|
+| **macOS** | `osascript`（原生通知中心） | `afplay` |
+| **Linux** | `notify-send`（libnotify） | `paplay` / `aplay` |
+| **Windows** | BurntToast（如已安装）或 `NotifyIcon` 气泡提示 | `System.Media.SoundPlayer` |
+
+无需额外配置——监听进程随 `./run.sh` / `run.ps1` 自动启动。只需保持 TUI 运行，其他窗口照常工作。听到提示音后切回来，查看哪个会话需要你介入即可。
+
+### 为什么这很重要
+
+在 TUI 中管理多个 Agent 会话时，你经常需要在不同任务之间切换上下文。没有通知的情况下，你必须时不时检查每个会话是否完成——既枯燥又容易遗漏。有了通知 + 提示音：
+
+- 你可以**专注于其他工作**（写代码、写文档、浏览网页）而不丢失对 Agent 的追踪
+- **声音提醒**即使在终端被最小化或处于其他工作区时也能听到
+- 通知会告诉你**哪个会话**完成了、**正在做什么**，让你精确知道下一步该去哪里
+- 它将 TUI 从"盯着等"的体验转变为**高效的异步工作流**
 
 ## 安装
 
@@ -137,11 +168,20 @@ hermes-gate/
 ├── run.sh
 ├── run.ps1
 ├── pyproject.toml
+├── sounds/              # 通知提示音文件
+│   ├── complete.wav     # 任务完成
+│   ├── error.wav        # 发生错误
+│   ├── permission.wav   # 权限请求
+│   └── question.wav     # 问题提示
+├── plugins/
+│   └── gate-notify/     # 自动部署到远程服务器
+│       ├── __init__.py  # 挂载 Hermes post_llm_call 钩子
+│       └── plugin.yaml
 └── hermes_gate/
     ├── __main__.py    # 入口
-    ├── app.py         # TUI 主界面
+    ├── app.py         # TUI 主界面 + 通知分发
     ├── servers.py     # 服务器管理与主机名解析
-    ├── session.py     # 远程 tmux 会话管理
+    ├── session.py     # 远程 tmux 会话管理 + 完成信号检测
     └── network.py     # 网络状态监控
 ```
 

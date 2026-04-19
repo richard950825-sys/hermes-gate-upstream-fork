@@ -29,6 +29,37 @@ Running Hermes Agent on a remote server usually means juggling SSH terminals, wo
 - Automatic hostname resolution (via `/etc/hosts`)
 - SSH config alias support (use your `~/.ssh/config` host aliases)
 - Remote control keys: `Ctrl+C` interrupt, `Ctrl+E` escape (without leaving the TUI)
+- **Desktop Notifications & Sound Alerts** — Get notified with a system popup and sound when an Agent task finishes
+
+## Desktop Notifications & Sound Alerts
+
+Hermes Gate automatically pops up a **system notification** and plays a **sound alert** whenever a remote Hermes Agent session completes a task. This is a massive productivity booster when you're in a high-intensity TUI workflow — you no longer need to keep staring at the screen waiting for a task to finish.
+
+### How it works
+
+The `gate-notify` plugin (auto-deployed to your remote server) writes a signal file every time the Agent completes a turn. The TUI polls these signals and forwards them to your host system via a mounted volume. A background watcher on your host then:
+
+1. **Shows a desktop notification** — a native system popup with the session name and task preview
+2. **Plays a sound** — `sounds/complete.wav` by default
+
+This is fully **cross-platform**:
+
+| Platform | Notification | Sound |
+|----------|-------------|-------|
+| **macOS** | `osascript` (native Notification Center) | `afplay` |
+| **Linux** | `notify-send` (libnotify) | `paplay` / `aplay` |
+| **Windows** | BurntToast (if installed) or `NotifyIcon` balloon tip | `System.Media.SoundPlayer` |
+
+No extra setup needed — the watcher starts automatically with `./run.sh` / `run.ps1`. Just keep the TUI open and let it run in the background. When you hear the sound, switch back and check which session needs your attention.
+
+### Why this matters
+
+When managing multiple Agent sessions in a TUI, you're often context-switching between different tasks. Without notifications, you'd have to periodically check each session to see if it's done — a tedious and error-prone process. With notifications + sound alerts:
+
+- You can **focus on other work** (coding, writing, browsing) without losing track of your Agents
+- The **audio cue** works even when the terminal is minimized or in another workspace
+- The notification tells you **which session** finished and **what it was doing**, so you know exactly where to jump in next
+- It transforms the TUI from a "stare and wait" experience into an **efficient asynchronous workflow**
 
 ## Installation
 
@@ -140,11 +171,20 @@ hermes-gate/
 ├── run.sh
 ├── run.ps1
 ├── pyproject.toml
+├── sounds/              # Notification sound files
+│   ├── complete.wav     # Task completed
+│   ├── error.wav        # Error occurred
+│   ├── permission.wav   # Permission request
+│   └── question.wav     # Question prompt
+├── plugins/
+│   └── gate-notify/     # Auto-deployed to remote server
+│       ├── __init__.py  # Hooks into Hermes post_llm_call
+│       └── plugin.yaml
 └── hermes_gate/
     ├── __main__.py    # Entry point
-    ├── app.py         # TUI main interface
+    ├── app.py         # TUI main interface + notification dispatch
     ├── servers.py     # Server management & hostname resolution
-    ├── session.py     # Remote tmux session management
+    ├── session.py     # Remote tmux session management + completion signals
     └── network.py     # Network status monitoring
 ```
 
