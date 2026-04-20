@@ -60,3 +60,38 @@ async def test_check_completion_falls_back_when_response_preview_missing():
     await HermesGateApp._check_completion.__wrapped__(app)
 
     app._notify.assert_called_once_with("gate-5", "task completed")
+
+
+def test_get_preview_prefers_response_preview_then_message_preview_then_default():
+    app = HermesGateApp()
+
+    assert (
+        app._get_preview(
+            {"response_preview": "assistant reply", "message_preview": "user prompt"}
+        )
+        == "assistant reply"
+    )
+    assert app._get_preview({"message_preview": "user prompt"}) == "user prompt"
+    assert app._get_preview({}) == "task completed"
+
+
+def test_start_bg_poll_uses_notify_path_instead_of_file_only_signal() -> None:
+    app = HermesGateApp()
+    app._notify = MagicMock()
+
+    class _Mgr:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def check_completion_signals(self):
+            self.calls += 1
+            if self.calls == 1:
+                return [{"session_id": 8, "response_preview": "done"}]
+            app._bg_poll_stop.set()
+            return []
+
+    mgr = _Mgr()
+    app._start_bg_poll(mgr)
+    app._bg_poll_thread.join(timeout=2)
+
+    app._notify.assert_called_once_with("gate-8", "done")

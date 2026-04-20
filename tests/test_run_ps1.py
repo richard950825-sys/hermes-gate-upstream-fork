@@ -149,3 +149,12 @@ def test_run_ps1_notification_job_no_longer_calls_burnttoast_inline():
     content = _run_ps1()
     assert 'New-BurntToastNotification -Text $title, $msg' not in content
     assert '$shown = $false' not in content
+
+
+def test_run_ps1_notification_host_wait_has_timeout_instead_of_unbounded_wait():
+    """Watcher should not block forever on Start-Process -Wait when a notification host stalls."""
+    content = _run_ps1()
+    assert '-PassThru' in content
+    assert '-Wait' not in content
+    assert 'WaitForExit(5000)' in content
+    assert '$process.Kill()' in content

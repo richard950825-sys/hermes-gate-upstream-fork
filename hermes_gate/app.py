@@ -585,6 +585,14 @@ class HermesGateApp(App):
             response_preview=message,
         )
 
+    @staticmethod
+    def _get_preview(sig: dict) -> str:
+        """Prefer assistant response preview, then legacy message preview, then default text.
+
+        Empty strings intentionally fall through to the next option.
+        """
+        return sig.get("response_preview") or sig.get("message_preview") or "task completed"
+
     @work(exit_on_error=False)
     async def _check_completion(self) -> None:
         if not self.session_mgr:
@@ -598,7 +606,7 @@ class HermesGateApp(App):
             return
         for sig in signals:
             name = f"gate-{sig.get('session_id', '?')}"
-            preview = sig.get("response_preview") or sig.get("message_preview") or "task completed"
+            preview = self._get_preview(sig)
             self._notify(name, preview)
 
     @work(exit_on_error=False)
@@ -795,13 +803,10 @@ class HermesGateApp(App):
                     signals = mgr.check_completion_signals()
                     for sig in signals:
                         name = f"gate-{sig.get('session_id', '?')}"
-                        preview = sig.get("response_preview") or sig.get("message_preview") or "task completed"
-                        self._emit_host_notification(
-                            "Hermes Gate",
-                            f"Hermes {name}: {preview}",
-                            session_name=name,
-                            response_preview=preview,
-                        )
+                        preview = self._get_preview(sig)
+                        # Keep attached-session notifications on the same OSC 9 + host-file path
+                        # as foreground completion checks so terminal and host behavior stay aligned.
+                        self._notify(name, preview)
                 except Exception:
                     pass
                 self._bg_poll_stop.wait(3)

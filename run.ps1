@@ -145,8 +145,16 @@ catch {
                                 '-WindowStyle', 'Hidden',
                                 '-EncodedCommand',
                                 $encodedNotifyCommand
-                            ) -WindowStyle Hidden -PassThru -Wait
-                            if ($process.ExitCode -eq 0) {
+                            ) -WindowStyle Hidden -PassThru
+                            if (-not $process.WaitForExit(5000)) {
+                                try {
+                                    $process.Kill()
+                                }
+                                catch {}
+                                Add-Content -Path $logPath -Value ((Get-Date -Format s) + ' Notification host timed out: ' + $notificationHost)
+                                continue
+                            }
+                            if ($null -ne $process.ExitCode -and $process.ExitCode -eq 0) {
                                 $toastShown = $true
                                 break
                             }
